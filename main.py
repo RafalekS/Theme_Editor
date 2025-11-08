@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from modules.theme_manager import ThemeManager
 from modules.theme_data import TerminalTheme, QSSPalette, CustomTkinterTheme
 from modules.json_theme_editor import JSONTerminalEditor
+from modules.qss_theme_editor import QSSThemeEditor
 
 
 class ThemeEditorMainWindow(QMainWindow):
@@ -90,12 +91,9 @@ class ThemeEditorMainWindow(QMainWindow):
         )
         self.tab_widget.addTab(self.windows_terminal_tab, "Windows Terminal")
 
-        # Tab 3: QSS Theme Editor
-        self.qss_editor_tab = self._create_placeholder_tab(
-            "QSS Theme Editor",
-            "Create and edit Qt Style Sheets (QSS) for PyQt6 applications\n"
-            "8-color palette with live preview and code generation"
-        )
+        # Tab 3: QSS Theme Editor (FULLY IMPLEMENTED)
+        self.qss_editor_tab = QSSThemeEditor(self.theme_manager)
+        self.qss_editor_tab.themeModified.connect(self._on_theme_modified)
         self.tab_widget.addTab(self.qss_editor_tab, "QSS Themes")
 
         # Tab 4: CustomTkinter Theme Editor
@@ -360,10 +358,14 @@ class ThemeEditorMainWindow(QMainWindow):
 
     def closeEvent(self, event):
         """Handle window close event"""
-        # Check for unsaved changes in terminal editor
+        # Check for unsaved changes in all editors
         has_unsaved = False
+
         if hasattr(self, 'terminal_editor_tab'):
-            has_unsaved = self.terminal_editor_tab.has_unsaved_changes()
+            has_unsaved = has_unsaved or self.terminal_editor_tab.has_unsaved_changes()
+
+        if hasattr(self, 'qss_editor_tab'):
+            has_unsaved = has_unsaved or self.qss_editor_tab.has_unsaved_changes()
 
         if has_unsaved or self.unsaved_changes:
             reply = QMessageBox.question(
@@ -377,8 +379,13 @@ class ThemeEditorMainWindow(QMainWindow):
 
             if reply == QMessageBox.StandardButton.Save:
                 # Save terminal themes if modified
-                if hasattr(self, 'terminal_editor_tab'):
+                if hasattr(self, 'terminal_editor_tab') and self.terminal_editor_tab.has_unsaved_changes():
                     self.terminal_editor_tab._save_themes()
+
+                # Save QSS theme if modified
+                if hasattr(self, 'qss_editor_tab') and self.qss_editor_tab.has_unsaved_changes():
+                    self.qss_editor_tab._save_theme()
+
                 event.accept()
             elif reply == QMessageBox.StandardButton.Discard:
                 event.accept()
