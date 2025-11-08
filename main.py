@@ -43,15 +43,8 @@ class ThemeEditorMainWindow(QMainWindow):
         # Initialize theme manager
         self.theme_manager = ThemeManager()
 
-        # Perform first-run setup
-        if self.theme_manager.first_run_setup():
-            QMessageBox.information(
-                self,
-                "First Run Setup",
-                "Welcome to Theme Editor!\n\n"
-                "60+ terminal themes have been loaded from the template library.\n"
-                "You can now create, edit, and convert themes across multiple formats."
-            )
+        # Perform first-run setup (silently)
+        self.theme_manager.first_run_setup()
 
         # Set application icon (use dark theme icon by default)
         icon_path = Path(__file__).parent / "assets" / "theme_editor_dark.ico"
@@ -289,7 +282,7 @@ class ThemeEditorMainWindow(QMainWindow):
 
         # Delegate to appropriate tab
         if current_index == 0:  # Terminal Themes
-            self.terminal_editor_tab._new_theme()
+            self.terminal_editor_tab._create_new_theme()
         elif current_index == 1:  # Windows Terminal
             self.windows_terminal_tab._add_theme()
         elif current_index == 2:  # QSS Themes
@@ -305,7 +298,7 @@ class ThemeEditorMainWindow(QMainWindow):
 
         # Delegate to appropriate tab
         if current_index == 0:  # Terminal Themes
-            self.terminal_editor_tab._import_themes()
+            QMessageBox.information(self, "Terminal Themes", "Use the dropdown to select from loaded themes.\nThemes are automatically loaded from config/themes/themes.json")
         elif current_index == 1:  # Windows Terminal
             self.windows_terminal_tab._browse_settings()
         elif current_index == 2:  # QSS Themes
@@ -321,7 +314,7 @@ class ThemeEditorMainWindow(QMainWindow):
 
         # Delegate to appropriate tab
         if current_index == 0:  # Terminal Themes
-            self.terminal_editor_tab._save_all_themes()
+            self.terminal_editor_tab._save_themes()
         elif current_index == 1:  # Windows Terminal
             self.windows_terminal_tab._save_settings()
         elif current_index == 2:  # QSS Themes
@@ -329,7 +322,7 @@ class ThemeEditorMainWindow(QMainWindow):
         elif current_index == 3:  # CustomTkinter
             self.ctk_editor_tab._save_theme()
         else:
-            self.status_bar.showMessage("Save not applicable for this tab")
+            self.status_label.setText("Save not applicable for this tab")
 
     def _save_theme_as(self):
         """Save theme as new file"""
@@ -337,7 +330,7 @@ class ThemeEditorMainWindow(QMainWindow):
 
         # Delegate to appropriate tab
         if current_index == 0:  # Terminal Themes
-            self.terminal_editor_tab._export_theme()
+            QMessageBox.information(self, "Terminal Themes", "All themes are saved together.\nUse 'Save' to save all themes to config/themes/themes.json")
         elif current_index == 1:  # Windows Terminal
             self.windows_terminal_tab._export_theme()
         elif current_index == 2:  # QSS Themes
@@ -345,7 +338,7 @@ class ThemeEditorMainWindow(QMainWindow):
         elif current_index == 3:  # CustomTkinter
             self.ctk_editor_tab._save_theme_as()
         else:
-            self.status_bar.showMessage("Save As not applicable for this tab")
+            self.status_label.setText("Save As not applicable for this tab")
 
     def _undo(self):
         """Undo last action"""
@@ -427,7 +420,7 @@ class ThemeEditorMainWindow(QMainWindow):
         # Update file status based on current tab
         file_info = ""
         if current_index == 0:  # Terminal Themes
-            file_info = str(self.theme_manager.themes_file)
+            file_info = str(self.theme_manager.themes_dir / "themes.json")
         elif current_index == 1:  # Windows Terminal
             if self.windows_terminal_tab.settings_path:
                 file_info = str(self.windows_terminal_tab.settings_path)

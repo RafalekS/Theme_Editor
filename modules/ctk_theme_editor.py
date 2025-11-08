@@ -87,12 +87,13 @@ class CTkThemeEditor(QWidget):
         self.save_as_btn.clicked.connect(self._save_theme_as)
         toolbar_layout.addWidget(self.save_as_btn)
 
-        toolbar_layout.addSpacing(10)
+        toolbar_layout.addStretch()
 
         # Current file label
         self.file_label = QLabel("No file loaded")
         self.file_label.setStyleSheet("color: gray; font-style: italic;")
-        toolbar_layout.addWidget(self.file_label, 1)
+        self.file_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        toolbar_layout.addWidget(self.file_label)
 
         return toolbar
 
