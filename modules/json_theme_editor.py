@@ -117,11 +117,11 @@ class JSONTerminalEditor(QWidget):
 
         container = QWidget()
         container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(5, 5, 5, 5)
+        container_layout.setSpacing(5)
 
-        # Title
-        title = QLabel("Color Palette (20 Colors)")
-        title.setStyleSheet("font-size: 14pt; font-weight: bold;")
-        container_layout.addWidget(title)
+        # Title - REMOVE to save space
+        # container_layout.addWidget(title)
 
         # Color picker groups
         # Group 1: Basic colors
@@ -185,11 +185,12 @@ class JSONTerminalEditor(QWidget):
             QGroupBox with color pickers
         """
         group = QGroupBox(title)
-        group.setStyleSheet("QGroupBox { font-weight: bold; }")
+        group.setStyleSheet("QGroupBox { font-weight: bold; font-size: 10pt; }")
 
         # Use grid layout (2 columns)
         layout = QGridLayout(group)
-        layout.setSpacing(10)
+        layout.setSpacing(5)
+        layout.setContentsMargins(5, 10, 5, 5)
 
         for i, (prop_name, label_text) in enumerate(colors):
             row = i // 2

@@ -129,17 +129,18 @@ class QSSThemeEditor(QWidget):
 
         container = QWidget()
         container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(5, 5, 5, 5)
+        container_layout.setSpacing(5)
 
-        # Title
-        title = QLabel("Color Palette")
-        title.setStyleSheet("font-size: 14pt; font-weight: bold;")
-        container_layout.addWidget(title)
+        # Title - REMOVE to save space
+        # container_layout.addWidget(title)
 
         # 8-color palette
-        palette_group = QGroupBox("8 Core Colors")
-        palette_group.setStyleSheet("QGroupBox { font-weight: bold; }")
+        palette_group = QGroupBox("Color Palette")
+        palette_group.setStyleSheet("QGroupBox { font-weight: bold; font-size: 10pt; }")
         palette_layout = QGridLayout(palette_group)
-        palette_layout.setSpacing(10)
+        palette_layout.setSpacing(5)
+        palette_layout.setContentsMargins(5, 10, 5, 5)
 
         colors = [
             ("background", "Background"),
@@ -166,13 +167,14 @@ class QSSThemeEditor(QWidget):
         container_layout.addWidget(palette_group)
 
         # Generate button
-        generate_btn = QPushButton("Generate QSS from Palette")
-        generate_btn.setStyleSheet("font-weight: bold; padding: 8px;")
+        generate_btn = QPushButton("Generate QSS")
+        generate_btn.setStyleSheet("font-weight: bold; padding: 5px;")
         generate_btn.clicked.connect(self._generate_qss_from_palette)
         container_layout.addWidget(generate_btn)
 
         # Extract button
-        extract_btn = QPushButton("Extract Palette from QSS")
+        extract_btn = QPushButton("Extract Palette")
+        extract_btn.setStyleSheet("padding: 5px;")
         extract_btn.clicked.connect(self._extract_palette_from_qss)
         container_layout.addWidget(extract_btn)
 
@@ -186,15 +188,14 @@ class QSSThemeEditor(QWidget):
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(5)
 
-        # Title
-        title = QLabel("QSS Code Editor")
-        title.setStyleSheet("font-size: 14pt; font-weight: bold;")
-        layout.addWidget(title)
+        # Title - REMOVE to save space
+        # layout.addWidget(title)
 
         # Code editor (plain text for now, syntax highlighting can be added later)
         self.code_editor = QTextEdit()
-        self.code_editor.setFont(QFont("Consolas", 10))
+        self.code_editor.setFont(QFont("Consolas", 9))
         self.code_editor.setPlaceholderText(
             "/* Qt Style Sheet (QSS) */\n\n"
             "QWidget {\n"
@@ -208,7 +209,7 @@ class QSSThemeEditor(QWidget):
 
         # Apply button
         apply_btn = QPushButton("Apply to Preview")
-        apply_btn.setStyleSheet("font-weight: bold; padding: 8px;")
+        apply_btn.setStyleSheet("font-weight: bold; padding: 5px;")
         apply_btn.clicked.connect(self._apply_to_preview)
         layout.addWidget(apply_btn)
 

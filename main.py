@@ -74,9 +74,11 @@ class ThemeEditorMainWindow(QMainWindow):
         # Main layout
         layout = QVBoxLayout(central_widget)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
         # Tab widget (5 tabs for different editors)
         self.tab_widget = QTabWidget()
+        self.tab_widget.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.tab_widget)
 
         # Tab 1: JSON Terminal Themes Editor (FULLY IMPLEMENTED)
