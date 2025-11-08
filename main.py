@@ -78,8 +78,8 @@ class ThemeEditorMainWindow(QMainWindow):
 
         # Tab widget (5 tabs for different editors)
         self.tab_widget = QTabWidget()
-        self.tab_widget.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self.tab_widget)
+        self.tab_widget.setDocumentMode(True)  # Remove frame around tab widget
+        layout.addWidget(self.tab_widget, 1)  # Give all stretch to tab widget
 
         # Tab 1: JSON Terminal Themes Editor (FULLY IMPLEMENTED)
         self.terminal_editor_tab = JSONTerminalEditor(self.theme_manager)

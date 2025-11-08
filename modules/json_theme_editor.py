@@ -38,8 +38,8 @@ class JSONTerminalEditor(QWidget):
     def _setup_ui(self):
         """Setup editor UI"""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)
-        layout.setSpacing(5)
+        layout.setContentsMargins(2, 2, 2, 2)
+        layout.setSpacing(2)
 
         # Top toolbar: Theme selector and actions
         toolbar = self._create_toolbar()
@@ -66,8 +66,8 @@ class JSONTerminalEditor(QWidget):
         """Create top toolbar with theme selector and action buttons"""
         toolbar = QWidget()
         toolbar_layout = QHBoxLayout(toolbar)
-        toolbar_layout.setContentsMargins(0, 0, 0, 5)
-        toolbar_layout.setSpacing(5)
+        toolbar_layout.setContentsMargins(0, 0, 0, 0)
+        toolbar_layout.setSpacing(3)
 
         # Theme selector
         label = QLabel("Select Theme:")
@@ -117,8 +117,8 @@ class JSONTerminalEditor(QWidget):
 
         container = QWidget()
         container_layout = QVBoxLayout(container)
-        container_layout.setContentsMargins(5, 5, 5, 5)
-        container_layout.setSpacing(5)
+        container_layout.setContentsMargins(2, 2, 2, 2)
+        container_layout.setSpacing(2)
 
         # Title - REMOVE to save space
         # container_layout.addWidget(title)
@@ -185,12 +185,12 @@ class JSONTerminalEditor(QWidget):
             QGroupBox with color pickers
         """
         group = QGroupBox(title)
-        group.setStyleSheet("QGroupBox { font-weight: bold; font-size: 10pt; }")
+        group.setStyleSheet("QGroupBox { font-weight: bold; font-size: 10pt; padding-top: 5px; }")
 
         # Use grid layout (2 columns)
         layout = QGridLayout(group)
-        layout.setSpacing(5)
-        layout.setContentsMargins(5, 10, 5, 5)
+        layout.setSpacing(3)
+        layout.setContentsMargins(3, 8, 3, 3)
 
         for i, (prop_name, label_text) in enumerate(colors):
             row = i // 2

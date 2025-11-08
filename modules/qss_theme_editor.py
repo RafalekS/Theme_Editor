@@ -40,8 +40,8 @@ class QSSThemeEditor(QWidget):
     def _setup_ui(self):
         """Setup editor UI"""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)
-        layout.setSpacing(5)
+        layout.setContentsMargins(2, 2, 2, 2)
+        layout.setSpacing(2)
 
         # Top toolbar: File operations and template selector
         toolbar = self._create_toolbar()
@@ -73,8 +73,8 @@ class QSSThemeEditor(QWidget):
         """Create top toolbar with file operations and template selector"""
         toolbar = QWidget()
         toolbar_layout = QHBoxLayout(toolbar)
-        toolbar_layout.setContentsMargins(0, 0, 0, 5)
-        toolbar_layout.setSpacing(5)
+        toolbar_layout.setContentsMargins(0, 0, 0, 0)
+        toolbar_layout.setSpacing(3)
 
         # File operations
         self.new_btn = QPushButton("New")
@@ -129,18 +129,18 @@ class QSSThemeEditor(QWidget):
 
         container = QWidget()
         container_layout = QVBoxLayout(container)
-        container_layout.setContentsMargins(5, 5, 5, 5)
-        container_layout.setSpacing(5)
+        container_layout.setContentsMargins(2, 2, 2, 2)
+        container_layout.setSpacing(2)
 
         # Title - REMOVE to save space
         # container_layout.addWidget(title)
 
         # 8-color palette
         palette_group = QGroupBox("Color Palette")
-        palette_group.setStyleSheet("QGroupBox { font-weight: bold; font-size: 10pt; }")
+        palette_group.setStyleSheet("QGroupBox { font-weight: bold; font-size: 10pt; padding-top: 5px; }")
         palette_layout = QGridLayout(palette_group)
-        palette_layout.setSpacing(5)
-        palette_layout.setContentsMargins(5, 10, 5, 5)
+        palette_layout.setSpacing(3)
+        palette_layout.setContentsMargins(3, 8, 3, 3)
 
         colors = [
             ("background", "Background"),
@@ -188,7 +188,7 @@ class QSSThemeEditor(QWidget):
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(5)
+        layout.setSpacing(2)
 
         # Title - REMOVE to save space
         # layout.addWidget(title)

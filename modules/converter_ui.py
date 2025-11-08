@@ -40,8 +40,8 @@ class ConverterUI(QWidget):
     def _setup_ui(self):
         """Setup converter UI"""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(10)
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(5)
 
         # Title
         title = QLabel("Theme Converter")
