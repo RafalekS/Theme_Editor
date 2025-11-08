@@ -367,12 +367,9 @@ class ThemeEditorMainWindow(QMainWindow):
 
     def _open_image_converter(self):
         """Open Image Converter utility"""
-        QMessageBox.information(
-            self,
-            "Image Converter",
-            "Image Converter utility is being refactored to PyQt6.\n"
-            "This feature will be available in a future update."
-        )
+        from modules.image_converter import ImageConverterDialog
+        dialog = ImageConverterDialog(self)
+        dialog.exec()
 
     def _show_documentation(self):
         """Show documentation"""
