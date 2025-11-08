@@ -135,7 +135,7 @@ class ImageConverterDialog(QDialog):
 
     def _create_right_panel(self) -> QWidget:
         """Create right panel with options and tools"""
-        container = QWidget()
+        container = QWidget(self)
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
 
