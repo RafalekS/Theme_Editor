@@ -79,6 +79,17 @@ class ThemeEditorMainWindow(QMainWindow):
         # Tab widget (5 tabs for different editors)
         self.tab_widget = QTabWidget()
         self.tab_widget.setDocumentMode(True)  # Remove frame around tab widget
+
+        # Remove massive gray space between tab bar and content
+        self.tab_widget.setStyleSheet("""
+            QTabWidget::pane {
+                border: 0;
+                top: -1px;
+                margin: 0px;
+                padding: 0px;
+            }
+        """)
+
         layout.addWidget(self.tab_widget, 1)  # Give all stretch to tab widget
 
         # Tab 1: JSON Terminal Themes Editor (FULLY IMPLEMENTED)
