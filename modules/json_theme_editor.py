@@ -38,7 +38,8 @@ class JSONTerminalEditor(QWidget):
     def _setup_ui(self):
         """Setup editor UI"""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(5)
 
         # Top toolbar: Theme selector and actions
         toolbar = self._create_toolbar()
@@ -65,7 +66,8 @@ class JSONTerminalEditor(QWidget):
         """Create top toolbar with theme selector and action buttons"""
         toolbar = QWidget()
         toolbar_layout = QHBoxLayout(toolbar)
-        toolbar_layout.setContentsMargins(0, 0, 0, 10)
+        toolbar_layout.setContentsMargins(0, 0, 0, 5)
+        toolbar_layout.setSpacing(5)
 
         # Theme selector
         label = QLabel("Select Theme:")
@@ -284,11 +286,13 @@ class JSONTerminalEditor(QWidget):
         self.current_theme_name = theme_name
         self.unsaved_changes = False
 
-        # Load theme into color pickers
+        # Load theme into color pickers (block signals to prevent false "modified" trigger)
         theme = self.themes[theme_name]
         for prop_name, picker in self.color_pickers.items():
+            picker.blockSignals(True)  # Block signals during initialization
             color = getattr(theme, prop_name)
             picker.set_color(color)
+            picker.blockSignals(False)  # Re-enable signals
 
         # Update preview
         self.preview.set_theme(theme)

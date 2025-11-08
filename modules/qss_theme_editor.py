@@ -40,7 +40,8 @@ class QSSThemeEditor(QWidget):
     def _setup_ui(self):
         """Setup editor UI"""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(5)
 
         # Top toolbar: File operations and template selector
         toolbar = self._create_toolbar()
@@ -72,7 +73,8 @@ class QSSThemeEditor(QWidget):
         """Create top toolbar with file operations and template selector"""
         toolbar = QWidget()
         toolbar_layout = QHBoxLayout(toolbar)
-        toolbar_layout.setContentsMargins(0, 0, 0, 10)
+        toolbar_layout.setContentsMargins(0, 0, 0, 5)
+        toolbar_layout.setSpacing(5)
 
         # File operations
         self.new_btn = QPushButton("New")
@@ -240,12 +242,16 @@ class QSSThemeEditor(QWidget):
         )
         self._update_palette_pickers()
         self._generate_qss_from_palette()
+        # Reset unsaved flag after initialization
+        self.unsaved_changes = False
 
     def _update_palette_pickers(self):
         """Update color pickers with current palette"""
         for prop_name, picker in self.color_pickers.items():
+            picker.blockSignals(True)  # Block signals during update
             color = getattr(self.current_palette, prop_name)
             picker.set_color(color)
+            picker.blockSignals(False)  # Re-enable signals
 
     def _on_color_changed(self, property_name: str):
         """Handle color picker change"""
@@ -315,13 +321,18 @@ class QSSThemeEditor(QWidget):
 
         self._update_palette_pickers()
         self._generate_qss_from_palette()
+        # Reset unsaved flag after template change
+        self.unsaved_changes = False
 
     # ==================== QSS Operations ====================
 
     def _generate_qss_from_palette(self):
         """Generate QSS code from current palette"""
         qss = self.current_palette.generate_qss()
+        # Block signals to prevent triggering "unsaved changes"
+        self.code_editor.blockSignals(True)
         self.code_editor.setPlainText(qss)
+        self.code_editor.blockSignals(False)
         self._apply_to_preview()
 
     def _extract_palette_from_qss(self):

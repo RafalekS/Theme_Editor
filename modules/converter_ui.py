@@ -40,25 +40,23 @@ class ConverterUI(QWidget):
     def _setup_ui(self):
         """Setup converter UI"""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(20)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(10)
 
         # Title
         title = QLabel("Theme Converter")
-        title.setStyleSheet("font-size: 18pt; font-weight: bold;")
+        title.setStyleSheet("font-size: 14pt; font-weight: bold;")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
 
         # Description
-        desc = QLabel(
-            "Convert themes between different formats:\n"
-            "Terminal JSON ↔ QSS ↔ CustomTkinter ↔ Windows Terminal"
-        )
-        desc.setStyleSheet("font-size: 11pt; color: #666;")
+        desc = QLabel("Convert themes between different formats: Terminal JSON ↔ QSS ↔ CustomTkinter ↔ Windows Terminal")
+        desc.setStyleSheet("font-size: 9pt; color: #666;")
         desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        desc.setWordWrap(True)
         layout.addWidget(desc)
 
-        layout.addSpacing(20)
+        layout.addSpacing(5)
 
         # Conversion panel
         conversion_panel = self._create_conversion_panel()
