@@ -26,7 +26,9 @@ sys.path.insert(0, str(Path(__file__).parent))
 from modules.theme_manager import ThemeManager
 from modules.theme_data import TerminalTheme, QSSPalette, CustomTkinterTheme
 from modules.json_theme_editor import JSONTerminalEditor
+from modules.windows_terminal_editor import WindowsTerminalEditor
 from modules.qss_theme_editor import QSSThemeEditor
+from modules.ctk_theme_editor import CTkThemeEditor
 from modules.converter_ui import ConverterUI
 
 
@@ -97,12 +99,9 @@ class ThemeEditorMainWindow(QMainWindow):
         self.terminal_editor_tab.themeModified.connect(self._on_theme_modified)
         self.tab_widget.addTab(self.terminal_editor_tab, "Terminal Themes")
 
-        # Tab 2: Windows Terminal Integration
-        self.windows_terminal_tab = self._create_placeholder_tab(
-            "Windows Terminal Integration",
-            "Import/Export themes from Windows Terminal settings.json\n"
-            "Safely edit Windows Terminal color schemes with automatic backup"
-        )
+        # Tab 2: Windows Terminal Integration (FULLY IMPLEMENTED)
+        self.windows_terminal_tab = WindowsTerminalEditor(self.theme_manager)
+        self.windows_terminal_tab.themeModified.connect(self._on_theme_modified)
         self.tab_widget.addTab(self.windows_terminal_tab, "Windows Terminal")
 
         # Tab 3: QSS Theme Editor (FULLY IMPLEMENTED)
@@ -110,12 +109,9 @@ class ThemeEditorMainWindow(QMainWindow):
         self.qss_editor_tab.themeModified.connect(self._on_theme_modified)
         self.tab_widget.addTab(self.qss_editor_tab, "QSS Themes")
 
-        # Tab 4: CustomTkinter Theme Editor
-        self.ctk_editor_tab = self._create_placeholder_tab(
-            "CustomTkinter Theme Editor",
-            "Edit CustomTkinter themes with light/dark mode support\n"
-            "Widget-based color editing for modern Tkinter applications"
-        )
+        # Tab 4: CustomTkinter Theme Editor (FULLY IMPLEMENTED)
+        self.ctk_editor_tab = CTkThemeEditor(self.theme_manager)
+        self.ctk_editor_tab.themeModified.connect(self._on_theme_modified)
         self.tab_widget.addTab(self.ctk_editor_tab, "CustomTkinter")
 
         # Tab 5: Theme Converter (FULLY IMPLEMENTED)
