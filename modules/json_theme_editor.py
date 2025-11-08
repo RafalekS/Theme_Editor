@@ -168,7 +168,7 @@ class JSONTerminalEditor(QWidget):
         )
         container_layout.addWidget(bright_group)
 
-        container_layout.addStretch()
+        # Don't add stretch - scroll area handles sizing
         scroll.setWidget(container)
 
         return scroll

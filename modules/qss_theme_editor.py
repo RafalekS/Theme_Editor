@@ -178,7 +178,7 @@ class QSSThemeEditor(QWidget):
         extract_btn.clicked.connect(self._extract_palette_from_qss)
         container_layout.addWidget(extract_btn)
 
-        container_layout.addStretch()
+        # Don't add stretch - scroll area handles sizing
         scroll.setWidget(container)
 
         return scroll
