@@ -62,6 +62,7 @@ class ThemeEditorMainWindow(QMainWindow):
         self._setup_ui()
         self._setup_menu_bar()
         self._setup_status_bar()
+        self._apply_app_theme()
 
         # Track unsaved changes
         self.unsaved_changes = False
@@ -259,43 +260,92 @@ class ThemeEditorMainWindow(QMainWindow):
         """Setup status bar"""
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        self.status_bar.showMessage("Ready")
+
+        # Status labels
+        self.status_label = QLabel("Ready")
+        self.file_status_label = QLabel("")
+        self.unsaved_label = QLabel("")
+
+        self.status_bar.addWidget(self.status_label, 1)  # Stretch
+        self.status_bar.addPermanentWidget(self.file_status_label)
+        self.status_bar.addPermanentWidget(self.unsaved_label)
+
+        # Update status when tab changes
+        self.tab_widget.currentChanged.connect(self._update_status_bar)
+
+    def _apply_app_theme(self):
+        """Apply QSS theme to the application"""
+        theme_path = Path(__file__).parent / "config" / "app_theme.qss"
+        if theme_path.exists():
+            with open(theme_path, 'r', encoding='utf-8') as f:
+                self.setStyleSheet(f.read())
 
     # ==================== Menu Actions ====================
 
     def _new_theme(self):
-        """Create new theme"""
-        QMessageBox.information(self, "New Theme", "New theme functionality coming soon!")
+        """Create new theme in current tab"""
+        current_tab = self.tab_widget.currentWidget()
+        current_index = self.tab_widget.currentIndex()
+
+        # Delegate to appropriate tab
+        if current_index == 0:  # Terminal Themes
+            self.terminal_editor_tab._new_theme()
+        elif current_index == 1:  # Windows Terminal
+            self.windows_terminal_tab._add_theme()
+        elif current_index == 2:  # QSS Themes
+            self.qss_editor_tab._new_theme()
+        elif current_index == 3:  # CustomTkinter
+            self.ctk_editor_tab._new_theme()
+        else:
+            QMessageBox.information(self, "New Theme", "New theme not applicable for this tab")
 
     def _open_theme(self):
-        """Open theme file"""
-        filename, _ = QFileDialog.getOpenFileName(
-            self,
-            "Open Theme File",
-            str(self.theme_manager.themes_dir),
-            "Theme Files (*.json *.qss);;All Files (*)"
-        )
-        if filename:
-            self.status_bar.showMessage(f"Opened: {filename}")
+        """Open theme file in current tab"""
+        current_index = self.tab_widget.currentIndex()
+
+        # Delegate to appropriate tab
+        if current_index == 0:  # Terminal Themes
+            self.terminal_editor_tab._import_themes()
+        elif current_index == 1:  # Windows Terminal
+            self.windows_terminal_tab._browse_settings()
+        elif current_index == 2:  # QSS Themes
+            self.qss_editor_tab._open_theme()
+        elif current_index == 3:  # CustomTkinter
+            self.ctk_editor_tab._open_theme()
+        else:
+            QMessageBox.information(self, "Open", "Open file not applicable for this tab")
 
     def _save_theme(self):
         """Save current theme"""
-        if self.current_file:
-            self.status_bar.showMessage(f"Saved: {self.current_file}")
+        current_index = self.tab_widget.currentIndex()
+
+        # Delegate to appropriate tab
+        if current_index == 0:  # Terminal Themes
+            self.terminal_editor_tab._save_all_themes()
+        elif current_index == 1:  # Windows Terminal
+            self.windows_terminal_tab._save_settings()
+        elif current_index == 2:  # QSS Themes
+            self.qss_editor_tab._save_theme()
+        elif current_index == 3:  # CustomTkinter
+            self.ctk_editor_tab._save_theme()
         else:
-            self._save_theme_as()
+            self.status_bar.showMessage("Save not applicable for this tab")
 
     def _save_theme_as(self):
         """Save theme as new file"""
-        filename, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save Theme As",
-            str(self.theme_manager.themes_dir),
-            "JSON Files (*.json);;QSS Files (*.qss);;All Files (*)"
-        )
-        if filename:
-            self.current_file = filename
-            self.status_bar.showMessage(f"Saved as: {filename}")
+        current_index = self.tab_widget.currentIndex()
+
+        # Delegate to appropriate tab
+        if current_index == 0:  # Terminal Themes
+            self.terminal_editor_tab._export_theme()
+        elif current_index == 1:  # Windows Terminal
+            self.windows_terminal_tab._export_theme()
+        elif current_index == 2:  # QSS Themes
+            self.qss_editor_tab._save_theme_as()
+        elif current_index == 3:  # CustomTkinter
+            self.ctk_editor_tab._save_theme_as()
+        else:
+            self.status_bar.showMessage("Save As not applicable for this tab")
 
     def _undo(self):
         """Undo last action"""
@@ -361,11 +411,40 @@ class ThemeEditorMainWindow(QMainWindow):
     def _on_theme_modified(self):
         """Handle theme modification signal"""
         self.unsaved_changes = True
-        self.status_bar.showMessage("Theme modified (unsaved)", 3000)
+        self.unsaved_label.setText("● Unsaved changes")
+        self.unsaved_label.setStyleSheet("color: orange; font-weight: bold;")
+        self.status_label.setText("Theme modified")
 
     def _on_conversion_complete(self, target_format: str):
         """Handle theme conversion completion"""
-        self.status_bar.showMessage(f"Conversion to {target_format} complete", 5000)
+        self.status_label.setText(f"Conversion to {target_format} complete")
+
+    def _update_status_bar(self):
+        """Update status bar based on current tab"""
+        current_index = self.tab_widget.currentIndex()
+        tab_names = ["Terminal Themes", "Windows Terminal", "QSS Themes", "CustomTkinter", "Theme Converter"]
+
+        if current_index < len(tab_names):
+            self.status_label.setText(f"Editing: {tab_names[current_index]}")
+
+        # Update file status based on current tab
+        file_info = ""
+        if current_index == 0:  # Terminal Themes
+            file_info = str(self.theme_manager.themes_file)
+        elif current_index == 1:  # Windows Terminal
+            if self.windows_terminal_tab.settings_path:
+                file_info = str(self.windows_terminal_tab.settings_path)
+        elif current_index == 2:  # QSS Themes
+            if self.qss_editor_tab.current_file:
+                file_info = str(self.qss_editor_tab.current_file)
+        elif current_index == 3:  # CustomTkinter
+            if self.ctk_editor_tab.current_file:
+                file_info = str(self.ctk_editor_tab.current_file)
+
+        if file_info:
+            self.file_status_label.setText(f"File: {Path(file_info).name}")
+        else:
+            self.file_status_label.setText("")
 
     def closeEvent(self, event):
         """Handle window close event"""
