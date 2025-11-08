@@ -27,6 +27,7 @@ from modules.theme_manager import ThemeManager
 from modules.theme_data import TerminalTheme, QSSPalette, CustomTkinterTheme
 from modules.json_theme_editor import JSONTerminalEditor
 from modules.qss_theme_editor import QSSThemeEditor
+from modules.converter_ui import ConverterUI
 
 
 class ThemeEditorMainWindow(QMainWindow):
@@ -104,12 +105,9 @@ class ThemeEditorMainWindow(QMainWindow):
         )
         self.tab_widget.addTab(self.ctk_editor_tab, "CustomTkinter")
 
-        # Tab 5: Theme Converter
-        self.converter_tab = self._create_placeholder_tab(
-            "Theme Converter",
-            "Convert themes between different formats:\n"
-            "Terminal JSON <-> QSS <-> CustomTkinter <-> Windows Terminal"
-        )
+        # Tab 5: Theme Converter (FULLY IMPLEMENTED)
+        self.converter_tab = ConverterUI(self.theme_manager)
+        self.converter_tab.conversionComplete.connect(self._on_conversion_complete)
         self.tab_widget.addTab(self.converter_tab, "Converter")
 
     def _create_placeholder_tab(self, title: str, description: str) -> QWidget:
@@ -355,6 +353,10 @@ class ThemeEditorMainWindow(QMainWindow):
         """Handle theme modification signal"""
         self.unsaved_changes = True
         self.status_bar.showMessage("Theme modified (unsaved)", 3000)
+
+    def _on_conversion_complete(self, target_format: str):
+        """Handle theme conversion completion"""
+        self.status_bar.showMessage(f"Conversion to {target_format} complete", 5000)
 
     def closeEvent(self, event):
         """Handle window close event"""
