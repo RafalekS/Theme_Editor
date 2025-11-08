@@ -90,7 +90,7 @@ class ConverterUI(QWidget):
         export_layout.addWidget(self.export_btn)
 
         output_layout.addLayout(export_layout)
-        layout.addWidget(output_group)
+        layout.addWidget(output_group, 1)  # Expand to fill space
 
     def _create_conversion_panel(self) -> QGroupBox:
         """Create conversion selection panel"""

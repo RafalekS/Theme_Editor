@@ -67,7 +67,7 @@ class QSSThemeEditor(QWidget):
         splitter.setStretchFactor(1, 40)
         splitter.setStretchFactor(2, 35)
 
-        layout.addWidget(splitter)
+        layout.addWidget(splitter, 1)  # Give stretch factor 1 to expand vertically
 
     def _create_toolbar(self) -> QWidget:
         """Create top toolbar with file operations and template selector"""
@@ -220,9 +220,10 @@ class QSSThemeEditor(QWidget):
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
         self.preview = QSSPreviewWidget()
-        layout.addWidget(self.preview)
+        layout.addWidget(self.preview, 1)  # Expand to fill space
 
         return container
 

@@ -60,7 +60,7 @@ class JSONTerminalEditor(QWidget):
         splitter.setStretchFactor(0, 6)
         splitter.setStretchFactor(1, 4)
 
-        layout.addWidget(splitter)
+        layout.addWidget(splitter, 1)  # Give stretch factor 1 to expand vertically
 
     def _create_toolbar(self) -> QWidget:
         """Create top toolbar with theme selector and action buttons"""
@@ -212,9 +212,11 @@ class JSONTerminalEditor(QWidget):
         """Create preview panel"""
         container = QWidget()
         layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
         self.preview = TerminalPreviewWidget()
-        layout.addWidget(self.preview)
+        layout.addWidget(self.preview, 1)  # Expand to fill space
 
         return container
 
