@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from modules.theme_manager import ThemeManager
 from modules.theme_data import TerminalTheme, QSSPalette, CustomTkinterTheme
+from modules.json_theme_editor import JSONTerminalEditor
 
 
 class ThemeEditorMainWindow(QMainWindow):
@@ -76,12 +77,9 @@ class ThemeEditorMainWindow(QMainWindow):
         self.tab_widget = QTabWidget()
         layout.addWidget(self.tab_widget)
 
-        # Tab 1: JSON Terminal Themes Editor
-        self.terminal_editor_tab = self._create_placeholder_tab(
-            "JSON Terminal Themes Editor",
-            "Edit terminal color schemes (JSON format) - 20 color properties\n"
-            "Create and manage themes for terminal emulators"
-        )
+        # Tab 1: JSON Terminal Themes Editor (FULLY IMPLEMENTED)
+        self.terminal_editor_tab = JSONTerminalEditor(self.theme_manager)
+        self.terminal_editor_tab.themeModified.connect(self._on_theme_modified)
         self.tab_widget.addTab(self.terminal_editor_tab, "Terminal Themes")
 
         # Tab 2: Windows Terminal Integration
@@ -355,9 +353,19 @@ class ThemeEditorMainWindow(QMainWindow):
             "<p><b>Built with:</b> PyQt6</p>"
         )
 
+    def _on_theme_modified(self):
+        """Handle theme modification signal"""
+        self.unsaved_changes = True
+        self.status_bar.showMessage("Theme modified (unsaved)", 3000)
+
     def closeEvent(self, event):
         """Handle window close event"""
-        if self.unsaved_changes:
+        # Check for unsaved changes in terminal editor
+        has_unsaved = False
+        if hasattr(self, 'terminal_editor_tab'):
+            has_unsaved = self.terminal_editor_tab.has_unsaved_changes()
+
+        if has_unsaved or self.unsaved_changes:
             reply = QMessageBox.question(
                 self,
                 "Unsaved Changes",
@@ -368,7 +376,9 @@ class ThemeEditorMainWindow(QMainWindow):
             )
 
             if reply == QMessageBox.StandardButton.Save:
-                self._save_theme()
+                # Save terminal themes if modified
+                if hasattr(self, 'terminal_editor_tab'):
+                    self.terminal_editor_tab._save_themes()
                 event.accept()
             elif reply == QMessageBox.StandardButton.Discard:
                 event.accept()
