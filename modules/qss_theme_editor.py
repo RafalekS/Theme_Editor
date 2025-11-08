@@ -6,7 +6,7 @@ Editor for Qt Style Sheets (QSS) with 8-color palette and live preview
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox,
     QPushButton, QLabel, QMessageBox, QFileDialog, QSplitter,
-    QTextEdit, QComboBox, QScrollArea
+    QTextEdit, QComboBox, QScrollArea, QSizePolicy
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
@@ -138,6 +138,13 @@ class QSSThemeEditor(QWidget):
         # 8-color palette
         palette_group = QGroupBox("Color Palette")
         palette_group.setStyleSheet("QGroupBox { font-weight: bold; font-size: 10pt; padding-top: 5px; }")
+
+        # Prevent vertical expansion - stay compact
+        palette_group.setSizePolicy(
+            QSizePolicy.Policy.Preferred,  # Horizontal: resize with splitter
+            QSizePolicy.Policy.Fixed       # Vertical: minimum size only
+        )
+
         palette_layout = QGridLayout(palette_group)
         palette_layout.setSpacing(3)
         palette_layout.setContentsMargins(3, 8, 3, 3)

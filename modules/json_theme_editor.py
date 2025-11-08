@@ -6,7 +6,7 @@ Editor for terminal color schemes (JSON format with 20 colors)
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox,
     QComboBox, QPushButton, QLabel, QMessageBox, QInputDialog,
-    QSplitter, QScrollArea
+    QSplitter, QScrollArea, QSizePolicy
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from .theme_data import TerminalTheme
@@ -186,6 +186,12 @@ class JSONTerminalEditor(QWidget):
         """
         group = QGroupBox(title)
         group.setStyleSheet("QGroupBox { font-weight: bold; font-size: 10pt; padding-top: 5px; }")
+
+        # Prevent vertical expansion - stay compact
+        group.setSizePolicy(
+            QSizePolicy.Policy.Preferred,  # Horizontal: resize with splitter
+            QSizePolicy.Policy.Fixed       # Vertical: minimum size only
+        )
 
         # Use grid layout (2 columns)
         layout = QGridLayout(group)
