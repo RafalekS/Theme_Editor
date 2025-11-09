@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox,
     QPushButton, QLabel, QFileDialog, QMessageBox, QSlider,
     QProgressBar, QListWidget, QTextEdit, QSizePolicy, QComboBox,
-    QSpinBox
+    QSpinBox, QWidget
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QThread
 from PyQt6.QtGui import QPixmap, QDragEnterEvent, QDropEvent, QImage
