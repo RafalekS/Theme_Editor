@@ -349,26 +349,19 @@ class ImageConverterDialog(QDialog):
     def _save_as_ico(self, file_path: Path):
         """Save image as multi-size ICO file"""
         try:
-            sizes = [(32, 32), (128, 128), (256, 256)]
-            images = []
+            # Let Pillow handle multi-size ICO generation automatically
+            # It will resize the original image to each size with high-quality resampling
+            img = self.current_image.copy()
 
-            for size in sizes:
-                # Resize to exact size (not thumbnail which maintains aspect ratio)
-                resized = self.current_image.copy()
-                resized = resized.resize(size, Image.Resampling.LANCZOS)
+            # Convert to RGBA if needed
+            if img.mode != 'RGBA':
+                img = img.convert('RGBA')
 
-                # Convert to RGBA if needed
-                if resized.mode != 'RGBA':
-                    resized = resized.convert('RGBA')
-
-                images.append(resized)
-
-            # Save all sizes to ICO - must specify all sizes explicitly
-            images[0].save(
+            # Save with multiple sizes - Pillow handles the resizing
+            img.save(
                 file_path,
                 format='ICO',
-                sizes=sizes,
-                append_images=images[1:]
+                sizes=[(32, 32), (128, 128), (256, 256)]
             )
 
             self.progress_bar.setValue(100)
@@ -432,16 +425,10 @@ class ImageConverterDialog(QDialog):
 
                 # Convert and save
                 if output_path.suffix.lower() == '.ico':
-                    # Multi-size ICO
-                    sizes = [(32, 32), (128, 128), (256, 256)]
-                    images = []
-                    for size in sizes:
-                        resized = img.copy()
-                        resized = resized.resize(size, Image.Resampling.LANCZOS)
-                        if resized.mode != 'RGBA':
-                            resized = resized.convert('RGBA')
-                        images.append(resized)
-                    images[0].save(output_path, format='ICO', sizes=sizes, append_images=images[1:])
+                    # Multi-size ICO - let Pillow handle the resizing
+                    if img.mode != 'RGBA':
+                        img = img.convert('RGBA')
+                    img.save(output_path, format='ICO', sizes=[(32, 32), (128, 128), (256, 256)])
                 else:
                     save_kwargs = {}
                     if output_path.suffix.lower() in ('.jpg', '.jpeg', '.webp'):
