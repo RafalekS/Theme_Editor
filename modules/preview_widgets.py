@@ -6,9 +6,9 @@ Live preview components for different theme formats
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout,
     QTextEdit, QLabel, QFrame, QPushButton, QLineEdit, QComboBox,
-    QSpinBox, QCheckBox, QRadioButton, QProgressBar, QSlider,
+    QSpinBox, QDoubleSpinBox, QCheckBox, QRadioButton, QProgressBar, QSlider,
     QListWidget, QTreeWidget, QTableWidget, QTabWidget, QGroupBox,
-    QScrollArea, QTreeWidgetItem, QTableWidgetItem
+    QScrollArea, QTreeWidgetItem, QTableWidgetItem, QSplitter
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QTextCursor, QTextCharFormat, QColor
