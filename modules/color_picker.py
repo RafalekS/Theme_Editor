@@ -35,7 +35,9 @@ class ColorPickerButton(QPushButton):
         super().__init__(parent)
         self.color = self._normalize_color(color)
         self.label = label
-        self.setFixedSize(100, 30)
+        # Larger, more visible color picker button
+        self.setMinimumSize(120, 32)
+        self.setMaximumHeight(32)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
         self.clicked.connect(self._choose_color)

@@ -270,7 +270,8 @@ class QtWidgetThemeEditor(QWidget):
         self.remove_widget_btn.clicked.connect(self._remove_widget)
         widget_layout.addWidget(self.remove_widget_btn)
 
-        editor_layout.addWidget(widget_group, 1)
+        # Widget Styles section gets less height (30% of editor space)
+        editor_layout.addWidget(widget_group, 3)
 
         # Style editor group
         style_group = QGroupBox("Widget Style Editor")
@@ -294,18 +295,50 @@ class QtWidgetThemeEditor(QWidget):
         preview_layout.addWidget(self.widget_preview)
         style_layout.addWidget(self.widget_preview_container)
 
-        # Visual style properties
+        # Visual style properties (scrollable with better layout)
         props_scroll = QScrollArea()
         props_scroll.setWidgetResizable(True)
-        props_scroll.setMaximumHeight(250)
+        props_scroll.setMinimumHeight(150)
+        props_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        props_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
 
         props_widget = QWidget()
+        props_widget.setObjectName("props_content")
         self.props_layout = QVBoxLayout(props_widget)
-        self.props_layout.setSpacing(8)
+        self.props_layout.setContentsMargins(5, 5, 5, 5)
+        self.props_layout.setSpacing(0)
         self.props_layout.addStretch()
 
         props_scroll.setWidget(props_widget)
-        style_layout.addWidget(props_scroll)
+
+        # Style the scroll area
+        props_scroll.setStyleSheet("""
+            QScrollArea {
+                background-color: transparent;
+            }
+            QWidget#props_content {
+                background-color: #FAFAFA;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: #F0F0F0;
+                width: 10px;
+                margin: 0;
+            }
+            QScrollBar::handle:vertical {
+                background: #C0C0C0;
+                min-height: 30px;
+                border-radius: 5px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #A0A0A0;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+        """)
+
+        style_layout.addWidget(props_scroll, 1)
 
         # Raw CSS editor (collapsible)
         self.show_css_btn = QPushButton("▼ Show Raw CSS")
@@ -325,18 +358,28 @@ class QtWidgetThemeEditor(QWidget):
         self.apply_style_btn.clicked.connect(self._apply_preview)
         style_layout.addWidget(self.apply_style_btn)
 
-        editor_layout.addWidget(style_group, 1)
+        # Style editor section gets more height (70% of editor space)
+        editor_layout.addWidget(style_group, 7)
 
         # Track if we're updating from code (to prevent loops)
         self.updating_from_code = False
 
+        # Set minimum width for editor side
+        editor_widget.setMinimumWidth(400)
         main_splitter.addWidget(editor_widget)
 
         # Right side: Live preview
         preview_widget = self._create_full_preview_panel()
+        preview_widget.setMinimumWidth(350)
         main_splitter.addWidget(preview_widget)
 
-        # Set initial splitter sizes (60% editor, 40% preview)
+        # Configure splitter for proper resizing
+        main_splitter.setStretchFactor(0, 6)  # Editor gets 60% of space
+        main_splitter.setStretchFactor(1, 4)  # Preview gets 40% of space
+        main_splitter.setChildrenCollapsible(False)  # Prevent total collapse
+        main_splitter.setHandleWidth(6)
+
+        # Set initial sizes
         main_splitter.setSizes([600, 400])
 
         layout.addWidget(main_splitter, 1)
@@ -778,12 +821,22 @@ class QtWidgetThemeEditor(QWidget):
         return QWidget()
 
     def _update_visual_properties(self, style: str):
-        """Parse CSS and create visual property controls"""
-        # Clear existing properties
+        """Parse CSS and create visual property controls using QFormLayout"""
+        from PyQt6.QtWidgets import QFormLayout
+        from .color_picker import ColorPickerButton
+
+        # Clear existing properties (remove form layout if exists)
         while self.props_layout.count() > 1:  # Keep the stretch
             item = self.props_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+            elif item.layout():
+                # Delete the form layout and all its children
+                layout = item.layout()
+                while layout.count():
+                    child = layout.takeAt(0)
+                    if child.widget():
+                        child.widget().deleteLater()
 
         if not style:
             return
@@ -791,27 +844,25 @@ class QtWidgetThemeEditor(QWidget):
         # Parse CSS properties
         properties = self._parse_css_properties(style)
 
+        if not properties:
+            return
+
+        # Create a QFormLayout for proper label-field alignment
+        form_layout = QFormLayout()
+        form_layout.setSpacing(8)
+        form_layout.setHorizontalSpacing(12)
+        form_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        form_layout.setFormAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+
         # Create controls for each property
-        from .color_picker import ColorPickerButton
-
         for prop_name, prop_value in properties.items():
-            prop_layout = QHBoxLayout()
-
-            # Property label
-            label = QLabel(f"{prop_name}:")
-            label.setMinimumWidth(120)
-            prop_layout.addWidget(label)
-
             # Check if it's a color property
             if any(color_word in prop_name.lower() for color_word in ['color', 'background', 'border']) and prop_value.startswith('#'):
-                # Color picker
+                # Color picker button
                 color_picker = ColorPickerButton(prop_value)
                 color_picker.colorChanged.connect(lambda c, p=prop_name: self._on_color_changed(p, c))
-                prop_layout.addWidget(color_picker)
-
-                # Show hex value
-                hex_label = QLabel(prop_value)
-                prop_layout.addWidget(hex_label)
+                form_layout.addRow(f"{prop_name}:", color_picker)
 
             elif prop_name in ['padding', 'margin', 'border-width'] and prop_value.replace('px', '').strip().isdigit():
                 # Spinbox for dimensions
@@ -820,7 +871,7 @@ class QtWidgetThemeEditor(QWidget):
                 spinbox.setValue(int(prop_value.replace('px', '').strip()))
                 spinbox.setSuffix(" px")
                 spinbox.valueChanged.connect(lambda v, p=prop_name: self._on_dimension_changed(p, v))
-                prop_layout.addWidget(spinbox)
+                form_layout.addRow(f"{prop_name}:", spinbox)
 
             elif prop_name == 'border-radius' and 'px' in prop_value:
                 # Spinbox for border radius
@@ -829,16 +880,16 @@ class QtWidgetThemeEditor(QWidget):
                 spinbox.setValue(int(prop_value.replace('px', '').strip()))
                 spinbox.setSuffix(" px")
                 spinbox.valueChanged.connect(lambda v, p=prop_name: self._on_dimension_changed(p, v))
-                prop_layout.addWidget(spinbox)
+                form_layout.addRow(f"{prop_name}:", spinbox)
 
             else:
                 # Text field for other properties
                 text_edit = QLineEdit(prop_value)
                 text_edit.textChanged.connect(lambda t, p=prop_name: self._on_text_property_changed(p, t))
-                prop_layout.addWidget(text_edit)
+                form_layout.addRow(f"{prop_name}:", text_edit)
 
-            prop_layout.addStretch()
-            self.props_layout.insertLayout(self.props_layout.count() - 1, prop_layout)
+        # Insert the form layout into the main props layout
+        self.props_layout.insertLayout(self.props_layout.count() - 1, form_layout)
 
     def _parse_css_properties(self, style: str) -> dict:
         """Parse CSS style string into property dict"""
