@@ -7,7 +7,8 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QComboBox,
     QListWidget, QTextEdit, QSplitter, QGroupBox, QLineEdit, QMessageBox,
     QInputDialog, QScrollArea, QSpinBox, QRadioButton, QCheckBox,
-    QProgressBar, QSlider
+    QProgressBar, QSlider, QDateEdit, QTimeEdit, QDateTimeEdit, QDoubleSpinBox,
+    QTabWidget
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from pathlib import Path
@@ -227,7 +228,7 @@ class QtWidgetThemeEditor(QWidget):
         self.load_file_btn.clicked.connect(self._load_from_file)
         controls_layout.addWidget(self.load_file_btn)
 
-        self.save_btn = QPushButton("Save All")
+        self.save_btn = QPushButton("Save")
         self.save_btn.clicked.connect(self._save_themes)
         controls_layout.addWidget(self.save_btn)
 
@@ -256,7 +257,8 @@ class QtWidgetThemeEditor(QWidget):
         add_widget_layout.addWidget(QLabel("Add widget:"))
         self.widget_selector_combo = QComboBox()
         self.widget_selector_combo.setEditable(True)
-        self.widget_selector_combo.addItems(QT_WIDGET_SELECTORS)
+        # Sort the selectors alphabetically for easier finding
+        self.widget_selector_combo.addItems(sorted(QT_WIDGET_SELECTORS))
         add_widget_layout.addWidget(self.widget_selector_combo, 1)
 
         self.add_widget_btn = QPushButton("Add")
@@ -436,6 +438,9 @@ class QtWidgetThemeEditor(QWidget):
         self.widget_list.clear()
         self.widget_list.addItems(self.current_theme.get_widget_selectors())
 
+        # Update add widget dropdown to exclude already-added widgets
+        self._update_available_widgets()
+
         # Clear style editor
         self.style_edit.blockSignals(True)
         self.style_edit.clear()
@@ -444,6 +449,21 @@ class QtWidgetThemeEditor(QWidget):
 
         # Apply to preview
         self._apply_preview()
+
+    def _update_available_widgets(self):
+        """Update the add widget dropdown to show only widgets not yet in theme"""
+        if not self.current_theme:
+            return
+
+        # Get current widgets in theme
+        existing_widgets = set(self.current_theme.get_widget_selectors())
+
+        # Filter out existing widgets from the full list
+        available = [w for w in QT_WIDGET_SELECTORS if w not in existing_widgets]
+
+        # Update combo box
+        self.widget_selector_combo.clear()
+        self.widget_selector_combo.addItems(sorted(available))
 
     def _on_widget_selected(self, widget_selector: str):
         """Handle widget selection in list"""
@@ -483,6 +503,53 @@ class QtWidgetThemeEditor(QWidget):
         self.unsaved_changes = True
         self.themeModified.emit()
 
+    def _get_default_style(self, widget_selector: str) -> str:
+        """Get default style template for a widget type"""
+        # Extract base widget name
+        base = widget_selector.split(':')[0].split('::')[0].strip()
+
+        # Default style templates for common widgets
+        defaults = {
+            "QPushButton": "background-color: #0078D4; color: #FFFFFF; border: 1px solid #555; border-radius: 4px; padding: 6px 12px;",
+            "QLineEdit": "background-color: #3C3C3C; color: #FFFFFF; border: 1px solid #555; border-radius: 3px; padding: 4px;",
+            "QTextEdit": "background-color: #3C3C3C; color: #FFFFFF; border: 1px solid #555;",
+            "QComboBox": "background-color: #3C3C3C; color: #FFFFFF; border: 1px solid #555; border-radius: 3px; padding: 4px;",
+            "QCheckBox": "color: #FFFFFF; spacing: 5px;",
+            "QCheckBox::indicator": "width: 18px; height: 18px; border: 2px solid #555; border-radius: 3px; background-color: #3C3C3C;",
+            "QCheckBox::indicator:checked": "background-color: #0078D4; border-color: #0078D4;",
+            "QRadioButton": "color: #FFFFFF; spacing: 5px;",
+            "QRadioButton::indicator": "width: 18px; height: 18px; border: 2px solid #555; border-radius: 9px; background-color: #3C3C3C;",
+            "QRadioButton::indicator:checked": "background-color: #0078D4; border-color: #0078D4;",
+            "QLabel": "color: #FFFFFF; background-color: transparent;",
+            "QGroupBox": "color: #FFFFFF; border: 1px solid #555; border-radius: 4px; margin-top: 10px; padding-top: 10px;",
+            "QProgressBar": "border: 1px solid #555; border-radius: 3px; background-color: #3C3C3C; text-align: center;",
+            "QProgressBar::chunk": "background-color: #0078D4; border-radius: 2px;",
+            "QSlider::groove:horizontal": "border: 1px solid #555; height: 6px; background: #3C3C3C; border-radius: 3px;",
+            "QSlider::handle:horizontal": "background: #0078D4; border: 1px solid #555; width: 16px; margin: -5px 0; border-radius: 8px;",
+            "QSpinBox": "background-color: #3C3C3C; color: #FFFFFF; border: 1px solid #555; border-radius: 3px; padding: 4px;",
+            "QDateEdit": "background-color: #3C3C3C; color: #FFFFFF; border: 1px solid #555; border-radius: 3px; padding: 4px;",
+            "QTimeEdit": "background-color: #3C3C3C; color: #FFFFFF; border: 1px solid #555; border-radius: 3px; padding: 4px;",
+            "QListWidget": "background-color: #3C3C3C; color: #FFFFFF; border: 1px solid #555;",
+            "QListWidget::item": "padding: 4px;",
+            "QListWidget::item:selected": "background-color: #0078D4; color: #FFFFFF;",
+            "QTableWidget": "background-color: #3C3C3C; color: #FFFFFF; border: 1px solid #555; gridline-color: #555;",
+            "QTreeWidget": "background-color: #3C3C3C; color: #FFFFFF; border: 1px solid #555;",
+            "QScrollBar:vertical": "background: #2B2B2B; width: 12px; border: none;",
+            "QScrollBar::handle:vertical": "background: #555555; border-radius: 6px; min-height: 20px;",
+            "QTabWidget::pane": "border: 1px solid #555; background-color: #2B2B2B;",
+            "QTabBar::tab": "background-color: #3C3C3C; color: #FFFFFF; border: 1px solid #555; padding: 6px 12px;",
+            "QTabBar::tab:selected": "background-color: #0078D4; color: #FFFFFF;",
+            "QMenuBar": "background-color: #2B2B2B; color: #FFFFFF;",
+            "QMenuBar::item": "padding: 4px 8px;",
+            "QMenuBar::item:selected": "background-color: #0078D4;",
+            "QMenu": "background-color: #3C3C3C; color: #FFFFFF; border: 1px solid #555;",
+            "QMenu::item": "padding: 4px 20px;",
+            "QMenu::item:selected": "background-color: #0078D4;",
+        }
+
+        # Return default for this widget, or a generic default
+        return defaults.get(widget_selector, defaults.get(base, "background-color: #3C3C3C; color: #FFFFFF; border: 1px solid #555;"))
+
     def _add_widget(self):
         """Add a new widget to the current theme"""
         if not self.current_theme:
@@ -503,12 +570,16 @@ class QtWidgetThemeEditor(QWidget):
                 self.widget_list.setCurrentItem(items[0])
             return
 
-        # Add widget with default empty style
-        self.current_theme.add_widget_style(widget_selector, "")
+        # Add widget with default style based on widget type
+        default_style = self._get_default_style(widget_selector)
+        self.current_theme.add_widget_style(widget_selector, default_style)
 
         # Update widget list
         self.widget_list.clear()
         self.widget_list.addItems(self.current_theme.get_widget_selectors())
+
+        # Update available widgets dropdown
+        self._update_available_widgets()
 
         # Select the new widget
         items = self.widget_list.findItems(widget_selector, Qt.MatchFlag.MatchExactly)
@@ -538,6 +609,9 @@ class QtWidgetThemeEditor(QWidget):
             # Update widget list
             self.widget_list.clear()
             self.widget_list.addItems(self.current_theme.get_widget_selectors())
+
+            # Update available widgets dropdown
+            self._update_available_widgets()
 
             # Clear style editor
             self.style_edit.blockSignals(True)
@@ -651,10 +725,19 @@ class QtWidgetThemeEditor(QWidget):
     def _save_themes(self):
         """Save all themes to file"""
         try:
+            # Block signals to prevent any focus changes from triggering unsaved changes
+            self.style_edit.blockSignals(True)
+
             self.theme_manager.save_qt_widget_themes(self.themes)
             self.unsaved_changes = False
+
+            # Show success message
             QMessageBox.information(self, "Success", "Qt widget themes saved successfully")
+
+            # Unblock signals
+            self.style_edit.blockSignals(False)
         except Exception as e:
+            self.style_edit.blockSignals(False)
             QMessageBox.critical(self, "Error", f"Failed to save themes:\n{e}")
 
     def _load_from_file(self):
@@ -800,7 +883,29 @@ class QtWidgetThemeEditor(QWidget):
             slider.setValue(50)
             return slider
         elif base_selector == "QSpinBox":
-            return QSpinBox()
+            spinbox = QSpinBox()
+            spinbox.setValue(50)
+            return spinbox
+        elif base_selector == "QDoubleSpinBox":
+            spinbox = QDoubleSpinBox()
+            spinbox.setValue(3.14)
+            return spinbox
+        elif base_selector == "QDateEdit":
+            date_edit = QDateEdit()
+            from PyQt6.QtCore import QDate
+            date_edit.setDate(QDate.currentDate())
+            date_edit.setCalendarPopup(True)
+            return date_edit
+        elif base_selector == "QTimeEdit":
+            time_edit = QTimeEdit()
+            from PyQt6.QtCore import QTime
+            time_edit.setTime(QTime.currentTime())
+            return time_edit
+        elif base_selector == "QDateTimeEdit":
+            datetime_edit = QDateTimeEdit()
+            from PyQt6.QtCore import QDateTime
+            datetime_edit.setDateTime(QDateTime.currentDateTime())
+            return datetime_edit
         elif base_selector == "QTextEdit":
             edit = QTextEdit()
             edit.setPlaceholderText("Sample text...")
@@ -816,6 +921,12 @@ class QtWidgetThemeEditor(QWidget):
             layout = QVBoxLayout(group)
             layout.addWidget(QLabel("Content"))
             return group
+        elif base_selector == "QTabWidget":
+            tabs = QTabWidget()
+            tabs.addTab(QLabel("Tab 1 Content"), "Tab 1")
+            tabs.addTab(QLabel("Tab 2 Content"), "Tab 2")
+            tabs.setMaximumHeight(100)
+            return tabs
 
         # Default: just show a widget
         return QWidget()
@@ -857,12 +968,25 @@ class QtWidgetThemeEditor(QWidget):
 
         # Create controls for each property
         for prop_name, prop_value in properties.items():
-            # Check if it's a color property
-            if any(color_word in prop_name.lower() for color_word in ['color', 'background', 'border']) and prop_value.startswith('#'):
-                # Color picker button
-                color_picker = ColorPickerButton(prop_value)
-                color_picker.colorChanged.connect(lambda c, p=prop_name: self._on_color_changed(p, c))
-                form_layout.addRow(f"{prop_name}:", color_picker)
+            # Check if it's a color property (look for color keywords OR hex values anywhere in the value)
+            is_color_prop = any(color_word in prop_name.lower() for color_word in ['color', 'background', 'border'])
+            has_hex = '#' in prop_value
+            is_named_color = prop_value.lower() in ['transparent', 'none', 'black', 'white', 'red', 'green', 'blue', 'yellow', 'cyan', 'magenta', 'gray', 'grey']
+
+            if is_color_prop and (has_hex or is_named_color):
+                # Extract the actual color value from the property
+                # Handle cases like "5px solid #D5A200" or "1px solid transparent"
+                color_value = self._extract_color_from_value(prop_value)
+                if color_value:
+                    # Color picker button
+                    color_picker = ColorPickerButton(color_value)
+                    color_picker.colorChanged.connect(lambda c, p=prop_name: self._on_color_changed(p, c))
+                    form_layout.addRow(f"{prop_name}:", color_picker)
+                else:
+                    # Fallback to text edit if we can't extract color
+                    text_edit = QLineEdit(prop_value)
+                    text_edit.textChanged.connect(lambda t, p=prop_name: self._on_text_property_changed(p, t))
+                    form_layout.addRow(f"{prop_name}:", text_edit)
 
             elif prop_name in ['padding', 'margin', 'border-width'] and prop_value.replace('px', '').strip().isdigit():
                 # Spinbox for dimensions
@@ -907,12 +1031,84 @@ class QtWidgetThemeEditor(QWidget):
 
         return properties
 
+    def _extract_color_from_value(self, value: str) -> Optional[str]:
+        """Extract color value from a CSS property value
+
+        Handles cases like:
+        - "#D5A200" -> "#D5A200"
+        - "5px solid #D5A200" -> "#D5A200"
+        - "transparent" -> "#00000000" (transparent black)
+        - "1px solid transparent" -> "#00000000"
+        """
+        import re
+
+        value_lower = value.lower()
+
+        # Check for hex color
+        hex_match = re.search(r'#[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?', value)
+        if hex_match:
+            return hex_match.group(0).upper()
+
+        # Check for named colors (map to hex)
+        named_colors = {
+            'transparent': '#000000',  # Show as black in picker, but we know it's transparent
+            'none': '#000000',
+            'black': '#000000',
+            'white': '#FFFFFF',
+            'red': '#FF0000',
+            'green': '#00FF00',
+            'blue': '#0000FF',
+            'yellow': '#FFFF00',
+            'cyan': '#00FFFF',
+            'magenta': '#FF00FF',
+            'gray': '#808080',
+            'grey': '#808080',
+            'darkgray': '#A9A9A9',
+            'darkgrey': '#A9A9A9',
+            'lightgray': '#D3D3D3',
+            'lightgrey': '#D3D3D3',
+        }
+
+        # Check if the entire value is a named color
+        if value_lower in named_colors:
+            return named_colors[value_lower]
+
+        # Check if value contains a named color (e.g., "1px solid transparent")
+        for color_name, hex_val in named_colors.items():
+            if color_name in value_lower:
+                return hex_val
+
+        return None
+
     def _on_color_changed(self, prop_name: str, color: str):
         """Handle color picker change"""
         if self.updating_from_code:
             return
 
-        self._update_css_property(prop_name, color)
+        # Get current value to see if we need to replace color within a complex value
+        if not self.current_theme or not self.widget_list.currentItem():
+            return
+
+        widget_selector = self.widget_list.currentItem().text()
+        current_style = self.current_theme.get_widget_style(widget_selector) or ""
+        properties = self._parse_css_properties(current_style)
+        current_value = properties.get(prop_name, "")
+
+        # If the current value contains more than just a color (e.g., "5px solid #D5A200"),
+        # replace just the color part
+        import re
+        if '#' in current_value:
+            # Replace existing hex color with new color
+            new_value = re.sub(r'#[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?', color, current_value)
+        elif any(named in current_value.lower() for named in ['transparent', 'none', 'black', 'white', 'red', 'green', 'blue']):
+            # Replace named color with hex color
+            # This is tricky, let's just replace the whole value for now
+            new_value = color
+        else:
+            # Just a simple color value
+            new_value = color
+
+        self._update_css_property(prop_name, new_value)
 
     def _on_dimension_changed(self, prop_name: str, value: int):
         """Handle dimension spinbox change"""
