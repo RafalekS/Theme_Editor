@@ -3,7 +3,8 @@ Theme Converter
 Convert between different theme formats (Terminal JSON, QSS, CustomTkinter, Windows Terminal)
 """
 
-from .theme_data import TerminalTheme, QSSPalette, CustomTkinterTheme
+from .theme_data import TerminalTheme, QSSPalette, CustomTkinterTheme, QtWidgetTheme
+import re
 
 
 class ThemeConverter:
@@ -293,3 +294,281 @@ class ThemeConverter:
         b_int = int(b * 255)
 
         return ThemeConverter._rgb_to_hex((r_int, g_int, b_int))
+
+    # ==================== Qt Widget Theme Conversions ====================
+
+    @staticmethod
+    def terminal_to_qt_widget(terminal_theme: TerminalTheme) -> QtWidgetTheme:
+        """
+        Convert Terminal theme to Qt Widget theme
+
+        Args:
+            terminal_theme: TerminalTheme object
+
+        Returns:
+            QtWidgetTheme object with comprehensive widget styles
+        """
+        # Create a Qt Widget theme with styles for all major widgets
+        qt_theme = QtWidgetTheme(name=terminal_theme.name)
+
+        bg = terminal_theme.background
+        fg = terminal_theme.foreground
+        primary = terminal_theme.blue
+        hover = terminal_theme.selection
+        border = terminal_theme.brightBlack
+        disabled = terminal_theme.brightBlack
+
+        # Main widgets
+        qt_theme.add_widget_style("QMainWindow", f"background-color: {bg}; color: {fg};")
+        qt_theme.add_widget_style("QWidget", f"background-color: {bg}; color: {fg};")
+        qt_theme.add_widget_style("QDialog", f"background-color: {bg}; color: {fg};")
+
+        # GroupBox
+        qt_theme.add_widget_style("QGroupBox", f"background-color: {bg}; color: {fg}; border: 1px solid {border}; border-radius: 5px; margin-top: 10px; padding-top: 10px; font-weight: bold;")
+        qt_theme.add_widget_style("QGroupBox::title", f"subcontrol-origin: margin; subcontrol-position: top left; padding: 0 5px; color: {primary};")
+
+        # Label
+        qt_theme.add_widget_style("QLabel", f"color: {fg}; background-color: transparent;")
+
+        # Line Edit
+        qt_theme.add_widget_style("QLineEdit", f"background-color: {bg}; color: {fg}; border: 1px solid {border}; border-radius: 3px; padding: 5px; selection-background-color: {hover};")
+        qt_theme.add_widget_style("QLineEdit:focus", f"border: 1px solid {primary};")
+        qt_theme.add_widget_style("QLineEdit:read-only", f"background-color: {disabled}; color: {fg};")
+
+        # Push Button
+        qt_theme.add_widget_style("QPushButton", f"background-color: {primary}; color: {bg}; border: 1px solid {border}; border-radius: 4px; padding: 6px 12px; font-weight: bold;")
+        qt_theme.add_widget_style("QPushButton:hover", f"background-color: {terminal_theme.brightBlue};")
+        qt_theme.add_widget_style("QPushButton:pressed", f"background-color: {terminal_theme.cyan};")
+        qt_theme.add_widget_style("QPushButton:disabled", f"background-color: {disabled}; color: {border};")
+
+        # ComboBox
+        qt_theme.add_widget_style("QComboBox", f"background-color: {bg}; color: {fg}; border: 1px solid {border}; border-radius: 3px; padding: 5px;")
+        qt_theme.add_widget_style("QComboBox:hover", f"border: 1px solid {primary};")
+        qt_theme.add_widget_style("QComboBox::drop-down", "border: none; padding-right: 5px;")
+        qt_theme.add_widget_style("QComboBox::down-arrow", f"image: none; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid {fg}; margin-right: 5px;")
+        qt_theme.add_widget_style("QComboBox QAbstractItemView", f"background-color: {bg}; color: {fg}; selection-background-color: {hover}; border: 1px solid {border};")
+
+        # List Widget
+        qt_theme.add_widget_style("QListWidget", f"background-color: {bg}; color: {fg}; border: 2px dashed {primary}; border-radius: 5px; padding: 5px;")
+        qt_theme.add_widget_style("QListWidget::item", "padding: 5px;")
+        qt_theme.add_widget_style("QListWidget::item:selected", f"background-color: {hover}; color: {fg};")
+        qt_theme.add_widget_style("QListWidget::item:hover", f"background-color: {border};")
+
+        # Text Edit
+        qt_theme.add_widget_style("QTextEdit", f"background-color: {bg}; color: {fg}; border: 1px solid {border}; border-radius: 3px; padding: 5px;")
+        qt_theme.add_widget_style("QTextEdit:read-only", f"background-color: {disabled};")
+
+        # Scroll Area
+        qt_theme.add_widget_style("QScrollArea", f"background-color: {bg}; border: none;")
+
+        # Scroll Bar
+        qt_theme.add_widget_style("QScrollBar:vertical", f"background-color: {bg}; width: 12px; border: none;")
+        qt_theme.add_widget_style("QScrollBar::handle:vertical", f"background-color: {border}; border-radius: 6px; min-height: 20px;")
+        qt_theme.add_widget_style("QScrollBar::handle:vertical:hover", f"background-color: {primary};")
+        qt_theme.add_widget_style("QScrollBar::add-line:vertical", "height: 0px;")
+        qt_theme.add_widget_style("QScrollBar::sub-line:vertical", "height: 0px;")
+        qt_theme.add_widget_style("QScrollBar:horizontal", f"background-color: {bg}; height: 12px; border: none;")
+        qt_theme.add_widget_style("QScrollBar::handle:horizontal", f"background-color: {border}; border-radius: 6px; min-width: 20px;")
+        qt_theme.add_widget_style("QScrollBar::handle:horizontal:hover", f"background-color: {primary};")
+        qt_theme.add_widget_style("QScrollBar::add-line:horizontal", "width: 0px;")
+        qt_theme.add_widget_style("QScrollBar::sub-line:horizontal", "width: 0px;")
+
+        # Splitter
+        qt_theme.add_widget_style("QSplitter::handle", f"background-color: {border};")
+        qt_theme.add_widget_style("QSplitter::handle:horizontal", "width: 2px;")
+        qt_theme.add_widget_style("QSplitter::handle:vertical", "height: 2px;")
+
+        # Status Bar
+        qt_theme.add_widget_style("QStatusBar", f"background-color: {bg}; color: {fg}; border-top: 1px solid {border};")
+
+        # Menu Bar
+        qt_theme.add_widget_style("QMenuBar", f"background-color: {bg}; color: {fg}; border-bottom: 1px solid {border};")
+        qt_theme.add_widget_style("QMenuBar::item", "background-color: transparent; padding: 4px 8px;")
+        qt_theme.add_widget_style("QMenuBar::item:selected", f"background-color: {hover};")
+
+        # Menu
+        qt_theme.add_widget_style("QMenu", f"background-color: {bg}; color: {fg}; border: 1px solid {border};")
+        qt_theme.add_widget_style("QMenu::item", "padding: 5px 20px;")
+        qt_theme.add_widget_style("QMenu::item:selected", f"background-color: {hover};")
+
+        # Progress Bar
+        qt_theme.add_widget_style("QProgressBar", f"background-color: {bg}; color: {fg}; border: 1px solid {border}; border-radius: 3px; text-align: center;")
+        qt_theme.add_widget_style("QProgressBar::chunk", f"background-color: {primary}; border-radius: 2px;")
+
+        # Message Box
+        qt_theme.add_widget_style("QMessageBox", f"background-color: {bg}; color: {fg};")
+
+        return qt_theme
+
+    @staticmethod
+    def qt_widget_to_terminal(qt_widget_theme: QtWidgetTheme, name: str = None) -> TerminalTheme:
+        """
+        Convert Qt Widget theme to Terminal theme by extracting colors from widget styles
+
+        Args:
+            qt_widget_theme: QtWidgetTheme object
+            name: Optional name override
+
+        Returns:
+            TerminalTheme object
+        """
+        if name is None:
+            name = qt_widget_theme.name
+
+        # Extract all colors from widget styles
+        color_pattern = re.compile(r'#[0-9A-Fa-f]{6}\b')
+        all_colors = []
+
+        for style in qt_widget_theme.styles.values():
+            colors = color_pattern.findall(style)
+            all_colors.extend([c.upper() for c in colors])
+
+        if not all_colors:
+            # No colors found, return default theme
+            return TerminalTheme(
+                name=name,
+                background="#000000",
+                foreground="#FFFFFF",
+                cursor="#FFFFFF",
+                selection="#4D4D4D",
+                black="#000000",
+                red="#FF0000",
+                green="#00FF00",
+                yellow="#FFFF00",
+                blue="#0000FF",
+                purple="#FF00FF",
+                cyan="#00FFFF",
+                white="#FFFFFF",
+                brightBlack="#808080",
+                brightRed="#FF8080",
+                brightGreen="#80FF80",
+                brightYellow="#FFFF80",
+                brightBlue="#8080FF",
+                brightPurple="#FF80FF",
+                brightCyan="#80FFFF",
+                brightWhite="#FFFFFF"
+            )
+
+        # Count color occurrences
+        from collections import Counter
+        color_counts = Counter(all_colors)
+        most_common = [color for color, _ in color_counts.most_common()]
+
+        # Try to intelligently extract colors
+        background = most_common[0] if len(most_common) > 0 else "#000000"
+        foreground = most_common[1] if len(most_common) > 1 else "#FFFFFF"
+
+        # Look for primary/accent color (typically from QPushButton)
+        primary = background
+        for style in qt_widget_theme.styles.values():
+            if "QPushButton" in str(style):
+                button_colors = color_pattern.findall(style)
+                if button_colors:
+                    primary = button_colors[0].upper()
+                    break
+
+        # Use primary as basis for other colors
+        primary_rgb = ThemeConverter._hex_to_rgb(primary)
+
+        # Generate terminal colors based on primary
+        red = ThemeConverter._shift_hue(primary_rgb, -120)
+        green = ThemeConverter._shift_hue(primary_rgb, 120)
+        yellow = ThemeConverter._shift_hue(primary_rgb, 60)
+        blue = primary
+        purple = ThemeConverter._shift_hue(primary_rgb, -60)
+        cyan = ThemeConverter._shift_hue(primary_rgb, 180)
+
+        # Bright versions
+        brightRed = ThemeConverter._lighten(ThemeConverter._hex_to_rgb(red), 1.3)
+        brightGreen = ThemeConverter._lighten(ThemeConverter._hex_to_rgb(green), 1.3)
+        brightYellow = ThemeConverter._lighten(ThemeConverter._hex_to_rgb(yellow), 1.3)
+        brightBlue = ThemeConverter._lighten(primary_rgb, 1.3)
+        brightPurple = ThemeConverter._lighten(ThemeConverter._hex_to_rgb(purple), 1.3)
+        brightCyan = ThemeConverter._lighten(ThemeConverter._hex_to_rgb(cyan), 1.3)
+
+        # Black and white
+        black = ThemeConverter._darken(ThemeConverter._hex_to_rgb(background), 0.5)
+        white = ThemeConverter._lighten(ThemeConverter._hex_to_rgb(foreground), 1.0)
+        brightBlack = ThemeConverter._lighten(ThemeConverter._hex_to_rgb(black), 2.0)
+        brightWhite = ThemeConverter._lighten(ThemeConverter._hex_to_rgb(white), 1.0)
+
+        return TerminalTheme(
+            name=name,
+            background=background,
+            foreground=foreground,
+            cursor=foreground,
+            selection=most_common[2] if len(most_common) > 2 else "#4D4D4D",
+            black=black,
+            red=red,
+            green=green,
+            yellow=yellow,
+            blue=blue,
+            purple=purple,
+            cyan=cyan,
+            white=white,
+            brightBlack=brightBlack,
+            brightRed=brightRed,
+            brightGreen=brightGreen,
+            brightYellow=brightYellow,
+            brightBlue=brightBlue,
+            brightPurple=brightPurple,
+            brightCyan=brightCyan,
+            brightWhite=brightWhite
+        )
+
+    @staticmethod
+    def qss_to_qt_widget(qss_palette: QSSPalette, qss_code: str, name: str) -> QtWidgetTheme:
+        """
+        Convert QSS palette/code to Qt Widget theme
+
+        Args:
+            qss_palette: QSSPalette object
+            qss_code: QSS stylesheet code
+            name: Theme name
+
+        Returns:
+            QtWidgetTheme object
+        """
+        # Parse QSS code to extract widget-specific styles
+        qt_theme = QtWidgetTheme(name=name)
+
+        # Simple regex to extract selector and styles
+        # Pattern: "Selector { styles }"
+        pattern = re.compile(r'([^{]+)\s*\{([^}]+)\}', re.MULTILINE)
+
+        matches = pattern.findall(qss_code)
+
+        for selector, style in matches:
+            selector = selector.strip()
+            # Clean up the style (remove extra whitespace and newlines)
+            style = ' '.join(style.split())
+            if selector and style:
+                qt_theme.add_widget_style(selector, style)
+
+        return qt_theme
+
+    @staticmethod
+    def qt_widget_to_qss(qt_widget_theme: QtWidgetTheme) -> tuple[QSSPalette, str]:
+        """
+        Convert Qt Widget theme to QSS palette and code
+
+        Args:
+            qt_widget_theme: QtWidgetTheme object
+
+        Returns:
+            Tuple of (QSSPalette, qss_code)
+        """
+        # Generate stylesheet from Qt Widget theme
+        qss_code = qt_widget_theme.generate_stylesheet()
+
+        # Extract palette from the generated QSS
+        palette = QSSPalette.from_qss(qss_code)
+
+        # Add header
+        header = f"""/* QSS Theme Generated from Qt Widget Theme: {qt_widget_theme.name} */
+/* Conversion Date: Auto-generated by Theme Editor */
+
+"""
+        qss_code = header + qss_code
+
+        return palette, qss_code

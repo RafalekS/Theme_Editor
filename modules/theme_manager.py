@@ -9,7 +9,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
-from .theme_data import TerminalTheme, QSSPalette, CustomTkinterTheme
+from .theme_data import TerminalTheme, QSSPalette, CustomTkinterTheme, QtWidgetTheme
 
 
 class ThemeManager:
@@ -31,12 +31,14 @@ class ThemeManager:
         self.config_dir = base_dir / "config"
         self.themes_dir = self.config_dir / "themes"
         self.qss_themes_dir = self.config_dir / "qss_themes"
+        self.qt_widget_themes_dir = self.config_dir / "qt_widget_themes"
         self.templates_dir = self.config_dir / "templates"
         self.backup_dir = base_dir / "backup"
 
         # Ensure directories exist
         self.themes_dir.mkdir(parents=True, exist_ok=True)
         self.qss_themes_dir.mkdir(parents=True, exist_ok=True)
+        self.qt_widget_themes_dir.mkdir(parents=True, exist_ok=True)
         self.backup_dir.mkdir(parents=True, exist_ok=True)
 
     # ==================== JSON Terminal Themes ====================
@@ -445,3 +447,79 @@ class ThemeManager:
             return []
 
         return [f.name for f in self.qss_themes_dir.glob("*.qss")]
+
+    # ==================== Qt Widget Themes ====================
+
+    def load_qt_widget_themes(self, filepath: str = None) -> Dict[str, QtWidgetTheme]:
+        """
+        Load Qt Widget themes from JSON file
+
+        Args:
+            filepath: Path to JSON file (defaults to config/qt_widget_themes/qt_themes.json)
+
+        Returns:
+            Dictionary of theme_name -> QtWidgetTheme
+        """
+        if filepath is None:
+            filepath = self.qt_widget_themes_dir / "qt_themes.json"
+        else:
+            filepath = Path(filepath)
+
+        if not filepath.exists():
+            return {}
+
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            themes = {}
+            for theme_name, theme_data in data.items():
+                try:
+                    themes[theme_name] = QtWidgetTheme.from_dict(theme_data)
+                except Exception as e:
+                    print(f"Error loading Qt widget theme '{theme_name}': {e}")
+
+            return themes
+
+        except Exception as e:
+            print(f"Error loading Qt widget themes from {filepath}: {e}")
+            return {}
+
+    def save_qt_widget_themes(self, themes: Dict[str, QtWidgetTheme], filepath: str = None, backup: bool = True):
+        """
+        Save Qt Widget themes to JSON file
+
+        Args:
+            themes: Dictionary of theme_name -> QtWidgetTheme
+            filepath: Path to JSON file (defaults to config/qt_widget_themes/qt_themes.json)
+            backup: Whether to create backup before saving
+        """
+        if filepath is None:
+            filepath = self.qt_widget_themes_dir / "qt_themes.json"
+        else:
+            filepath = Path(filepath)
+
+        # Create backup if file exists
+        if backup and filepath.exists():
+            self._create_backup(filepath)
+
+        # Convert themes to dict
+        themes_dict = {name: theme.to_dict() for name, theme in themes.items()}
+
+        # Save to file
+        try:
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(themes_dict, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"Error saving Qt widget themes to {filepath}: {e}")
+            # Attempt to restore from backup
+            if backup:
+                self._restore_backup(filepath)
+            raise
+
+    def get_qt_widget_theme_list(self) -> List[str]:
+        """Get list of Qt widget theme files"""
+        if not self.qt_widget_themes_dir.exists():
+            return []
+
+        return [f.name for f in self.qt_widget_themes_dir.glob("*.json")]

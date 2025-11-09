@@ -24,11 +24,12 @@ from PyQt6.QtGui import QAction, QIcon
 sys.path.insert(0, str(Path(__file__).parent))
 
 from modules.theme_manager import ThemeManager
-from modules.theme_data import TerminalTheme, QSSPalette, CustomTkinterTheme
+from modules.theme_data import TerminalTheme, QSSPalette, CustomTkinterTheme, QtWidgetTheme
 from modules.json_theme_editor import JSONTerminalEditor
 from modules.windows_terminal_editor import WindowsTerminalEditor
 from modules.qss_theme_editor import QSSThemeEditor
 from modules.ctk_theme_editor import CTkThemeEditor
+from modules.qt_widget_theme_editor import QtWidgetThemeEditor
 from modules.converter_ui import ConverterUI
 
 
@@ -108,7 +109,12 @@ class ThemeEditorMainWindow(QMainWindow):
         self.ctk_editor_tab.themeModified.connect(self._on_theme_modified)
         self.tab_widget.addTab(self.ctk_editor_tab, "CustomTkinter")
 
-        # Tab 5: Theme Converter (FULLY IMPLEMENTED)
+        # Tab 5: Qt Widget Theme Editor (FULLY IMPLEMENTED)
+        self.qt_widget_editor_tab = QtWidgetThemeEditor(self.theme_manager)
+        self.qt_widget_editor_tab.themeModified.connect(self._on_theme_modified)
+        self.tab_widget.addTab(self.qt_widget_editor_tab, "Qt Widget Themes")
+
+        # Tab 6: Theme Converter (FULLY IMPLEMENTED)
         self.converter_tab = ConverterUI(self.theme_manager)
         self.converter_tab.conversionComplete.connect(self._on_conversion_complete)
         self.tab_widget.addTab(self.converter_tab, "Converter")
@@ -213,7 +219,8 @@ class ThemeEditorMainWindow(QMainWindow):
         view_menu.addAction("Windows Terminal", lambda: self.tab_widget.setCurrentIndex(1))
         view_menu.addAction("QSS Themes", lambda: self.tab_widget.setCurrentIndex(2))
         view_menu.addAction("CustomTkinter", lambda: self.tab_widget.setCurrentIndex(3))
-        view_menu.addAction("Theme Converter", lambda: self.tab_widget.setCurrentIndex(4))
+        view_menu.addAction("Qt Widget Themes", lambda: self.tab_widget.setCurrentIndex(4))
+        view_menu.addAction("Theme Converter", lambda: self.tab_widget.setCurrentIndex(5))
 
         # Tools Menu
         tools_menu = menubar.addMenu("&Tools")
@@ -289,6 +296,8 @@ class ThemeEditorMainWindow(QMainWindow):
             self.qss_editor_tab._new_theme()
         elif current_index == 3:  # CustomTkinter
             self.ctk_editor_tab._new_theme()
+        elif current_index == 4:  # Qt Widget Themes
+            self.qt_widget_editor_tab._new_theme()
         else:
             QMessageBox.information(self, "New Theme", "New theme not applicable for this tab")
 
@@ -305,6 +314,8 @@ class ThemeEditorMainWindow(QMainWindow):
             self.qss_editor_tab._open_theme()
         elif current_index == 3:  # CustomTkinter
             self.ctk_editor_tab._open_theme()
+        elif current_index == 4:  # Qt Widget Themes
+            QMessageBox.information(self, "Qt Widget Themes", "Use the dropdown to select from loaded themes.\nThemes are automatically loaded from config/qt_widget_themes/qt_themes.json")
         else:
             QMessageBox.information(self, "Open", "Open file not applicable for this tab")
 
@@ -321,6 +332,8 @@ class ThemeEditorMainWindow(QMainWindow):
             self.qss_editor_tab._save_theme()
         elif current_index == 3:  # CustomTkinter
             self.ctk_editor_tab._save_theme()
+        elif current_index == 4:  # Qt Widget Themes
+            self.qt_widget_editor_tab._save_themes()
         else:
             self.status_label.setText("Save not applicable for this tab")
 
@@ -337,6 +350,8 @@ class ThemeEditorMainWindow(QMainWindow):
             self.qss_editor_tab._save_theme_as()
         elif current_index == 3:  # CustomTkinter
             self.ctk_editor_tab._save_theme_as()
+        elif current_index == 4:  # Qt Widget Themes
+            QMessageBox.information(self, "Qt Widget Themes", "All themes are saved together.\nUse 'Save' to save all themes to config/qt_widget_themes/qt_themes.json")
         else:
             self.status_label.setText("Save As not applicable for this tab")
 
@@ -378,7 +393,8 @@ class ThemeEditorMainWindow(QMainWindow):
             "* JSON Terminal Themes (20 colors)\n"
             "* Windows Terminal Integration\n"
             "* QSS Themes (PyQt6)\n"
-            "* CustomTkinter Themes\n\n"
+            "* CustomTkinter Themes\n"
+            "* Qt Widget Themes (comprehensive widget styling)\n\n"
             "For detailed documentation, see:\n"
             "help/README.md"
         )
@@ -396,6 +412,7 @@ class ThemeEditorMainWindow(QMainWindow):
             "<li>Windows Terminal Settings</li>"
             "<li>Qt Style Sheets (QSS)</li>"
             "<li>CustomTkinter Themes</li>"
+            "<li>Qt Widget Themes</li>"
             "</ul>"
             "<p><b>Author:</b> Rafal Staska</p>"
             "<p><b>License:</b> MIT</p>"
@@ -416,7 +433,7 @@ class ThemeEditorMainWindow(QMainWindow):
     def _update_status_bar(self):
         """Update status bar based on current tab"""
         current_index = self.tab_widget.currentIndex()
-        tab_names = ["Terminal Themes", "Windows Terminal", "QSS Themes", "CustomTkinter", "Theme Converter"]
+        tab_names = ["Terminal Themes", "Windows Terminal", "QSS Themes", "CustomTkinter", "Qt Widget Themes", "Theme Converter"]
 
         if current_index < len(tab_names):
             self.status_label.setText(f"Editing: {tab_names[current_index]}")
@@ -434,6 +451,8 @@ class ThemeEditorMainWindow(QMainWindow):
         elif current_index == 3:  # CustomTkinter
             if self.ctk_editor_tab.current_file:
                 file_info = str(self.ctk_editor_tab.current_file)
+        elif current_index == 4:  # Qt Widget Themes
+            file_info = str(self.theme_manager.qt_widget_themes_dir / "qt_themes.json")
 
         if file_info:
             self.file_status_label.setText(f"File: {Path(file_info).name}")
@@ -450,6 +469,9 @@ class ThemeEditorMainWindow(QMainWindow):
 
         if hasattr(self, 'qss_editor_tab'):
             has_unsaved = has_unsaved or self.qss_editor_tab.has_unsaved_changes()
+
+        if hasattr(self, 'qt_widget_editor_tab'):
+            has_unsaved = has_unsaved or self.qt_widget_editor_tab.has_unsaved_changes()
 
         if has_unsaved or self.unsaved_changes:
             reply = QMessageBox.question(
@@ -469,6 +491,10 @@ class ThemeEditorMainWindow(QMainWindow):
                 # Save QSS theme if modified
                 if hasattr(self, 'qss_editor_tab') and self.qss_editor_tab.has_unsaved_changes():
                     self.qss_editor_tab._save_theme()
+
+                # Save Qt Widget themes if modified
+                if hasattr(self, 'qt_widget_editor_tab') and self.qt_widget_editor_tab.has_unsaved_changes():
+                    self.qt_widget_editor_tab._save_themes()
 
                 event.accept()
             elif reply == QMessageBox.StandardButton.Discard:

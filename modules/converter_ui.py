@@ -13,7 +13,7 @@ from PyQt6.QtGui import QFont
 from pathlib import Path
 from .theme_manager import ThemeManager
 from .theme_converter import ThemeConverter
-from .theme_data import TerminalTheme, QSSPalette
+from .theme_data import TerminalTheme, QSSPalette, QtWidgetTheme
 
 
 class ConverterUI(QWidget):
@@ -32,6 +32,7 @@ class ConverterUI(QWidget):
 
         # Loaded themes
         self.terminal_themes = {}
+        self.qt_widget_themes = {}
         self.current_source_theme = None
 
         self._setup_ui()
@@ -50,7 +51,7 @@ class ConverterUI(QWidget):
         layout.addWidget(title)
 
         # Description
-        desc = QLabel("Convert themes between different formats: Terminal JSON ↔ QSS ↔ CustomTkinter ↔ Windows Terminal")
+        desc = QLabel("Convert themes between different formats: Terminal JSON ↔ QSS ↔ Qt Widget ↔ CustomTkinter ↔ Windows Terminal")
         desc.setStyleSheet("font-size: 9pt; color: #666;")
         desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         desc.setWordWrap(True)
@@ -105,6 +106,7 @@ class ConverterUI(QWidget):
         self.source_format_combo.addItems([
             "Terminal JSON",
             "QSS (Qt Style Sheets)",
+            "Qt Widget Themes",
             "CustomTkinter (Coming Soon)",
             "Windows Terminal (Coming Soon)"
         ])
@@ -134,6 +136,7 @@ class ConverterUI(QWidget):
         self.target_format_combo.addItems([
             "QSS (Qt Style Sheets)",
             "Terminal JSON",
+            "Qt Widget Themes",
             "CustomTkinter (Coming Soon)",
             "Windows Terminal (Coming Soon)"
         ])
@@ -167,6 +170,8 @@ class ConverterUI(QWidget):
         """Load available themes from theme manager"""
         # Load terminal themes
         self.terminal_themes = self.theme_manager.load_json_themes()
+        # Load Qt widget themes
+        self.qt_widget_themes = self.theme_manager.load_qt_widget_themes()
         self._update_source_theme_list()
 
     def _update_source_theme_list(self):
@@ -181,6 +186,9 @@ class ConverterUI(QWidget):
             # List QSS files
             qss_themes = self.theme_manager.get_qss_theme_list()
             self.source_theme_combo.addItems(qss_themes)
+        elif "Qt Widget" in source_format:
+            # List Qt Widget themes
+            self.source_theme_combo.addItems(sorted(self.qt_widget_themes.keys()))
         else:
             self.source_theme_combo.addItem("(Not yet supported)")
 
@@ -230,8 +238,9 @@ class ConverterUI(QWidget):
                 "Not Supported",
                 "This conversion is not yet supported.\n"
                 "Currently supported:\n"
-                "• Terminal JSON → QSS\n"
-                "• QSS → Terminal JSON"
+                "• Terminal JSON ↔ QSS\n"
+                "• Terminal JSON ↔ Qt Widget\n"
+                "• QSS ↔ Qt Widget"
             )
             return
 
@@ -268,6 +277,56 @@ class ConverterUI(QWidget):
                 self.export_btn.setEnabled(True)
                 result = f"Successfully converted '{source_theme_name}' to Terminal JSON"
 
+            elif "Terminal JSON" in source_format and "Qt Widget" in target_format:
+                # Terminal → Qt Widget
+                terminal_theme = self.terminal_themes[source_theme_name]
+                qt_widget_theme = self.converter.terminal_to_qt_widget(terminal_theme)
+
+                # Show as JSON
+                import json
+                json_output = json.dumps(qt_widget_theme.to_dict(), indent=2)
+                self.output_preview.setPlainText(json_output)
+                self.current_source_theme = ("qt_widget", qt_widget_theme)
+                self.export_btn.setEnabled(True)
+                result = f"Successfully converted '{source_theme_name}' to Qt Widget Theme"
+
+            elif "Qt Widget" in source_format and "Terminal JSON" in target_format:
+                # Qt Widget → Terminal
+                qt_widget_theme = self.qt_widget_themes[source_theme_name]
+                terminal_theme = self.converter.qt_widget_to_terminal(qt_widget_theme, theme_name)
+
+                # Show as JSON
+                import json
+                json_output = json.dumps(terminal_theme.to_dict(), indent=2)
+                self.output_preview.setPlainText(json_output)
+                self.current_source_theme = ("terminal", terminal_theme)
+                self.export_btn.setEnabled(True)
+                result = f"Successfully converted '{source_theme_name}' to Terminal JSON"
+
+            elif "QSS" in source_format and "Qt Widget" in target_format:
+                # QSS → Qt Widget
+                qss_file = self.theme_manager.qss_themes_dir / source_theme_name
+                palette, qss_code = self.theme_manager.load_qss_theme(qss_file)
+                qt_widget_theme = self.converter.qss_to_qt_widget(palette, qss_code, theme_name)
+
+                # Show as JSON
+                import json
+                json_output = json.dumps(qt_widget_theme.to_dict(), indent=2)
+                self.output_preview.setPlainText(json_output)
+                self.current_source_theme = ("qt_widget", qt_widget_theme)
+                self.export_btn.setEnabled(True)
+                result = f"Successfully converted '{source_theme_name}' to Qt Widget Theme"
+
+            elif "Qt Widget" in source_format and "QSS" in target_format:
+                # Qt Widget → QSS
+                qt_widget_theme = self.qt_widget_themes[source_theme_name]
+                palette, qss_code = self.converter.qt_widget_to_qss(qt_widget_theme)
+
+                self.output_preview.setPlainText(qss_code)
+                self.current_source_theme = ("qss", qss_code)
+                self.export_btn.setEnabled(True)
+                result = f"Successfully converted '{source_theme_name}' to QSS"
+
             if result:
                 self.conversionComplete.emit(target_format)
                 QMessageBox.information(self, "Conversion Complete", result)
@@ -303,6 +362,26 @@ class ConverterUI(QWidget):
                 self,
                 "Export Terminal Theme",
                 str(self.theme_manager.themes_dir / "converted.json"),
+                "JSON Files (*.json);;All Files (*)"
+            )
+            if filename:
+                if not filename.endswith('.json'):
+                    filename += '.json'
+
+                import json
+                themes_dict = {data.name: data.to_dict()}
+
+                with open(filename, 'w', encoding='utf-8') as f:
+                    json.dump(themes_dict, f, indent=2)
+
+                QMessageBox.information(self, "Exported", f"Saved to:\n{filename}")
+
+        elif format_type == "qt_widget":
+            # Export Qt Widget Theme
+            filename, _ = QFileDialog.getSaveFileName(
+                self,
+                "Export Qt Widget Theme",
+                str(self.theme_manager.qt_widget_themes_dir / "converted.json"),
                 "JSON Files (*.json);;All Files (*)"
             )
             if filename:

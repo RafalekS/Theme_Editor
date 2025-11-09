@@ -417,3 +417,175 @@ class QSSPreviewWidget(QWidget):
         self.current_qss = qss_code
         if self.preview_container:
             self.preview_container.setStyleSheet(qss_code)
+
+
+class QtWidgetPreviewPanel(QWidget):
+    """
+    Comprehensive preview panel showing all Qt widgets
+    Used by Qt Widget Theme Editor
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Setup comprehensive widget preview"""
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(15)
+
+        # Buttons group
+        buttons_group = QGroupBox("Buttons")
+        buttons_layout = QVBoxLayout()
+
+        # Regular buttons
+        btn_row1 = QHBoxLayout()
+        btn_row1.addWidget(QPushButton("Normal Button"))
+        disabled_btn = QPushButton("Disabled Button")
+        disabled_btn.setEnabled(False)
+        btn_row1.addWidget(disabled_btn)
+        btn_row1.addWidget(QPushButton("Hover Me"))
+        buttons_layout.addLayout(btn_row1)
+
+        # Checkboxes and radio buttons
+        check_radio_layout = QHBoxLayout()
+        check_radio_layout.addWidget(QCheckBox("Unchecked"))
+        checked = QCheckBox("Checked")
+        checked.setChecked(True)
+        check_radio_layout.addWidget(checked)
+        check_radio_layout.addWidget(QRadioButton("Radio 1"))
+        radio2 = QRadioButton("Radio 2")
+        radio2.setChecked(True)
+        check_radio_layout.addWidget(radio2)
+        buttons_layout.addLayout(check_radio_layout)
+
+        buttons_group.setLayout(buttons_layout)
+        main_layout.addWidget(buttons_group)
+
+        # Input fields group
+        inputs_group = QGroupBox("Input Fields")
+        inputs_layout = QVBoxLayout()
+
+        # Line edit
+        inputs_layout.addWidget(QLabel("QLineEdit:"))
+        line_edit = QLineEdit()
+        line_edit.setPlaceholderText("Type here...")
+        inputs_layout.addWidget(line_edit)
+
+        # Read-only line edit
+        inputs_layout.addWidget(QLabel("QLineEdit (read-only):"))
+        readonly_edit = QLineEdit("Read-only text")
+        readonly_edit.setReadOnly(True)
+        inputs_layout.addWidget(readonly_edit)
+
+        # Text edit
+        inputs_layout.addWidget(QLabel("QTextEdit:"))
+        text_edit = QTextEdit()
+        text_edit.setPlaceholderText("Multi-line text...")
+        text_edit.setMaximumHeight(60)
+        inputs_layout.addWidget(text_edit)
+
+        inputs_group.setLayout(inputs_layout)
+        main_layout.addWidget(inputs_group)
+
+        # Selection widgets group
+        selection_group = QGroupBox("Selection Widgets")
+        selection_layout = QVBoxLayout()
+
+        # ComboBox
+        selection_layout.addWidget(QLabel("QComboBox:"))
+        combo = QComboBox()
+        combo.addItems(["Option 1", "Option 2", "Option 3", "Option 4"])
+        selection_layout.addWidget(combo)
+
+        # Spin boxes
+        spin_layout = QHBoxLayout()
+        spin_layout.addWidget(QLabel("QSpinBox:"))
+        spin_layout.addWidget(QSpinBox())
+        spin_layout.addWidget(QLabel("QDoubleSpinBox:"))
+        spin_layout.addWidget(QDoubleSpinBox())
+        selection_layout.addLayout(spin_layout)
+
+        # List widget
+        selection_layout.addWidget(QLabel("QListWidget:"))
+        list_widget = QListWidget()
+        list_widget.addItems(["Item 1", "Item 2 (selected)", "Item 3", "Item 4"])
+        list_widget.setCurrentRow(1)
+        list_widget.setMaximumHeight(80)
+        selection_layout.addWidget(list_widget)
+
+        selection_group.setLayout(selection_layout)
+        main_layout.addWidget(selection_group)
+
+        # Progress and sliders group
+        progress_group = QGroupBox("Progress & Sliders")
+        progress_layout = QVBoxLayout()
+
+        # Progress bar
+        progress_layout.addWidget(QLabel("QProgressBar:"))
+        progress = QProgressBar()
+        progress.setValue(65)
+        progress_layout.addWidget(progress)
+
+        # Slider
+        progress_layout.addWidget(QLabel("QSlider:"))
+        slider = QSlider(Qt.Orientation.Horizontal)
+        slider.setValue(50)
+        progress_layout.addWidget(slider)
+
+        progress_group.setLayout(progress_layout)
+        main_layout.addWidget(progress_group)
+
+        # Tabs group
+        tabs_group = QGroupBox("QTabWidget")
+        tabs_layout = QVBoxLayout()
+
+        tab_widget = QTabWidget()
+        tab_widget.addTab(QLabel("Content of Tab 1"), "Tab 1")
+        tab_widget.addTab(QLabel("Content of Tab 2"), "Tab 2")
+        tab_widget.addTab(QLabel("Content of Tab 3"), "Tab 3")
+        tab_widget.setMaximumHeight(100)
+        tabs_layout.addWidget(tab_widget)
+
+        tabs_group.setLayout(tabs_layout)
+        main_layout.addWidget(tabs_group)
+
+        # Scrollbar demo
+        scroll_group = QGroupBox("QScrollBar & QScrollArea")
+        scroll_layout = QVBoxLayout()
+
+        scroll_area = QScrollArea()
+        scroll_content = QWidget()
+        scroll_content_layout = QVBoxLayout(scroll_content)
+        for i in range(10):
+            scroll_content_layout.addWidget(QLabel(f"Scroll content line {i + 1}"))
+        scroll_area.setWidget(scroll_content)
+        scroll_area.setMaximumHeight(80)
+        scroll_layout.addWidget(scroll_area)
+
+        scroll_group.setLayout(scroll_layout)
+        main_layout.addWidget(scroll_group)
+
+        # Menu and status bar demo
+        menu_group = QGroupBox("QMenuBar & QStatusBar Preview")
+        menu_layout = QVBoxLayout()
+        menu_layout.addWidget(QLabel("(Menu and status bars are shown in main window)"))
+        menu_group.setLayout(menu_layout)
+        main_layout.addWidget(menu_group)
+
+        # Splitter demo
+        splitter_group = QGroupBox("QSplitter")
+        splitter_layout = QVBoxLayout()
+
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.addWidget(QLabel("Left pane"))
+        splitter.addWidget(QLabel("Right pane"))
+        splitter.setMaximumHeight(50)
+        splitter_layout.addWidget(splitter)
+
+        splitter_group.setLayout(splitter_layout)
+        main_layout.addWidget(splitter_group)
+
+        # Add stretch to push everything to top
+        main_layout.addStretch()

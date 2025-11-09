@@ -493,3 +493,96 @@ class CustomTkinterTheme:
                     update_dict(value, full_key)
 
         update_dict(self.theme_data)
+
+
+@dataclass
+class QtWidgetTheme:
+    """Qt Widget theme structure with widget-specific styles"""
+    name: str
+    styles: Dict[str, str] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to JSON-serializable dict"""
+        return {
+            "name": self.name,
+            "styles": self.styles
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'QtWidgetTheme':
+        """Create from JSON dict"""
+        return cls(
+            name=data.get("name", "Unnamed Theme"),
+            styles=data.get("styles", {})
+        )
+
+    def get_widget_selectors(self) -> List[str]:
+        """Get list of all widget selectors in this theme"""
+        return sorted(self.styles.keys())
+
+    def add_widget_style(self, selector: str, style: str):
+        """
+        Add or update a widget style
+
+        Args:
+            selector: Qt selector (e.g., "QPushButton", "QPushButton:hover")
+            style: CSS-like style string
+        """
+        self.styles[selector] = style
+
+    def remove_widget_style(self, selector: str):
+        """
+        Remove a widget style
+
+        Args:
+            selector: Qt selector to remove
+        """
+        if selector in self.styles:
+            del self.styles[selector]
+
+    def get_widget_style(self, selector: str) -> Optional[str]:
+        """
+        Get style for a specific widget selector
+
+        Args:
+            selector: Qt selector
+
+        Returns:
+            Style string or None if not found
+        """
+        return self.styles.get(selector)
+
+    def generate_stylesheet(self) -> str:
+        """
+        Generate complete Qt stylesheet from widget styles
+
+        Returns:
+            Qt stylesheet string
+        """
+        stylesheet_parts = []
+
+        for selector, style in sorted(self.styles.items()):
+            # Format: "Selector { style }"
+            stylesheet_parts.append(f"{selector} {{\n    {style}\n}}")
+
+        return "\n\n".join(stylesheet_parts)
+
+    def validate(self) -> tuple[bool, str]:
+        """
+        Validate theme structure
+
+        Returns:
+            (is_valid, error_message)
+        """
+        if not self.name:
+            return False, "Theme name cannot be empty"
+
+        if not self.styles:
+            return False, "Theme must have at least one widget style"
+
+        # Check for valid selector format (basic validation)
+        for selector in self.styles.keys():
+            if not selector or not selector.strip():
+                return False, f"Invalid selector: empty or whitespace only"
+
+        return True, ""
