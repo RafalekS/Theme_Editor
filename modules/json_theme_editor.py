@@ -6,7 +6,7 @@ Editor for terminal color schemes (JSON format with 20 colors)
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox,
     QComboBox, QPushButton, QLabel, QMessageBox, QInputDialog,
-    QSplitter, QScrollArea
+    QSplitter, QScrollArea, QSizePolicy
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from .theme_data import TerminalTheme
@@ -38,7 +38,8 @@ class JSONTerminalEditor(QWidget):
     def _setup_ui(self):
         """Setup editor UI"""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setContentsMargins(2, 2, 2, 2)
+        layout.setSpacing(2)
 
         # Top toolbar: Theme selector and actions
         toolbar = self._create_toolbar()
@@ -59,13 +60,14 @@ class JSONTerminalEditor(QWidget):
         splitter.setStretchFactor(0, 6)
         splitter.setStretchFactor(1, 4)
 
-        layout.addWidget(splitter)
+        layout.addWidget(splitter, 1)  # Give stretch factor 1 to expand vertically
 
     def _create_toolbar(self) -> QWidget:
         """Create top toolbar with theme selector and action buttons"""
         toolbar = QWidget()
         toolbar_layout = QHBoxLayout(toolbar)
-        toolbar_layout.setContentsMargins(0, 0, 0, 10)
+        toolbar_layout.setContentsMargins(0, 0, 0, 0)
+        toolbar_layout.setSpacing(3)
 
         # Theme selector
         label = QLabel("Select Theme:")
@@ -115,11 +117,11 @@ class JSONTerminalEditor(QWidget):
 
         container = QWidget()
         container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(2, 2, 2, 2)
+        container_layout.setSpacing(2)
 
-        # Title
-        title = QLabel("Color Palette (20 Colors)")
-        title.setStyleSheet("font-size: 14pt; font-weight: bold;")
-        container_layout.addWidget(title)
+        # Title - REMOVE to save space
+        # container_layout.addWidget(title)
 
         # Color picker groups
         # Group 1: Basic colors
@@ -166,7 +168,7 @@ class JSONTerminalEditor(QWidget):
         )
         container_layout.addWidget(bright_group)
 
-        container_layout.addStretch()
+        # Don't add stretch - scroll area handles sizing
         scroll.setWidget(container)
 
         return scroll
@@ -183,11 +185,18 @@ class JSONTerminalEditor(QWidget):
             QGroupBox with color pickers
         """
         group = QGroupBox(title)
-        group.setStyleSheet("QGroupBox { font-weight: bold; }")
+        group.setStyleSheet("QGroupBox { font-weight: bold; font-size: 10pt; padding-top: 5px; }")
+
+        # Prevent vertical expansion - stay compact
+        group.setSizePolicy(
+            QSizePolicy.Policy.Preferred,  # Horizontal: resize with splitter
+            QSizePolicy.Policy.Fixed       # Vertical: minimum size only
+        )
 
         # Use grid layout (2 columns)
         layout = QGridLayout(group)
-        layout.setSpacing(10)
+        layout.setSpacing(3)
+        layout.setContentsMargins(3, 8, 3, 3)
 
         for i, (prop_name, label_text) in enumerate(colors):
             row = i // 2
@@ -209,9 +218,11 @@ class JSONTerminalEditor(QWidget):
         """Create preview panel"""
         container = QWidget()
         layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
         self.preview = TerminalPreviewWidget()
-        layout.addWidget(self.preview)
+        layout.addWidget(self.preview, 1)  # Expand to fill space
 
         return container
 
@@ -284,11 +295,13 @@ class JSONTerminalEditor(QWidget):
         self.current_theme_name = theme_name
         self.unsaved_changes = False
 
-        # Load theme into color pickers
+        # Load theme into color pickers (block signals to prevent false "modified" trigger)
         theme = self.themes[theme_name]
         for prop_name, picker in self.color_pickers.items():
+            picker.blockSignals(True)  # Block signals during initialization
             color = getattr(theme, prop_name)
             picker.set_color(color)
+            picker.blockSignals(False)  # Re-enable signals
 
         # Update preview
         self.preview.set_theme(theme)

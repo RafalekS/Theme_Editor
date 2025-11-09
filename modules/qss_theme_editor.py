@@ -6,7 +6,7 @@ Editor for Qt Style Sheets (QSS) with 8-color palette and live preview
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox,
     QPushButton, QLabel, QMessageBox, QFileDialog, QSplitter,
-    QTextEdit, QComboBox, QScrollArea
+    QTextEdit, QComboBox, QScrollArea, QSizePolicy
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
@@ -40,7 +40,8 @@ class QSSThemeEditor(QWidget):
     def _setup_ui(self):
         """Setup editor UI"""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setContentsMargins(2, 2, 2, 2)
+        layout.setSpacing(2)
 
         # Top toolbar: File operations and template selector
         toolbar = self._create_toolbar()
@@ -66,13 +67,14 @@ class QSSThemeEditor(QWidget):
         splitter.setStretchFactor(1, 40)
         splitter.setStretchFactor(2, 35)
 
-        layout.addWidget(splitter)
+        layout.addWidget(splitter, 1)  # Give stretch factor 1 to expand vertically
 
     def _create_toolbar(self) -> QWidget:
         """Create top toolbar with file operations and template selector"""
         toolbar = QWidget()
         toolbar_layout = QHBoxLayout(toolbar)
-        toolbar_layout.setContentsMargins(0, 0, 0, 10)
+        toolbar_layout.setContentsMargins(0, 0, 0, 0)
+        toolbar_layout.setSpacing(3)
 
         # File operations
         self.new_btn = QPushButton("New")
@@ -127,17 +129,25 @@ class QSSThemeEditor(QWidget):
 
         container = QWidget()
         container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(2, 2, 2, 2)
+        container_layout.setSpacing(2)
 
-        # Title
-        title = QLabel("Color Palette")
-        title.setStyleSheet("font-size: 14pt; font-weight: bold;")
-        container_layout.addWidget(title)
+        # Title - REMOVE to save space
+        # container_layout.addWidget(title)
 
         # 8-color palette
-        palette_group = QGroupBox("8 Core Colors")
-        palette_group.setStyleSheet("QGroupBox { font-weight: bold; }")
+        palette_group = QGroupBox("Color Palette")
+        palette_group.setStyleSheet("QGroupBox { font-weight: bold; font-size: 10pt; padding-top: 5px; }")
+
+        # Prevent vertical expansion - stay compact
+        palette_group.setSizePolicy(
+            QSizePolicy.Policy.Preferred,  # Horizontal: resize with splitter
+            QSizePolicy.Policy.Fixed       # Vertical: minimum size only
+        )
+
         palette_layout = QGridLayout(palette_group)
-        palette_layout.setSpacing(10)
+        palette_layout.setSpacing(3)
+        palette_layout.setContentsMargins(3, 8, 3, 3)
 
         colors = [
             ("background", "Background"),
@@ -164,17 +174,18 @@ class QSSThemeEditor(QWidget):
         container_layout.addWidget(palette_group)
 
         # Generate button
-        generate_btn = QPushButton("Generate QSS from Palette")
-        generate_btn.setStyleSheet("font-weight: bold; padding: 8px;")
+        generate_btn = QPushButton("Generate QSS")
+        generate_btn.setStyleSheet("font-weight: bold; padding: 5px;")
         generate_btn.clicked.connect(self._generate_qss_from_palette)
         container_layout.addWidget(generate_btn)
 
         # Extract button
-        extract_btn = QPushButton("Extract Palette from QSS")
+        extract_btn = QPushButton("Extract Palette")
+        extract_btn.setStyleSheet("padding: 5px;")
         extract_btn.clicked.connect(self._extract_palette_from_qss)
         container_layout.addWidget(extract_btn)
 
-        container_layout.addStretch()
+        # Don't add stretch - scroll area handles sizing
         scroll.setWidget(container)
 
         return scroll
@@ -184,15 +195,14 @@ class QSSThemeEditor(QWidget):
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(2)
 
-        # Title
-        title = QLabel("QSS Code Editor")
-        title.setStyleSheet("font-size: 14pt; font-weight: bold;")
-        layout.addWidget(title)
+        # Title - REMOVE to save space
+        # layout.addWidget(title)
 
         # Code editor (plain text for now, syntax highlighting can be added later)
         self.code_editor = QTextEdit()
-        self.code_editor.setFont(QFont("Consolas", 10))
+        self.code_editor.setFont(QFont("Consolas", 9))
         self.code_editor.setPlaceholderText(
             "/* Qt Style Sheet (QSS) */\n\n"
             "QWidget {\n"
@@ -206,7 +216,7 @@ class QSSThemeEditor(QWidget):
 
         # Apply button
         apply_btn = QPushButton("Apply to Preview")
-        apply_btn.setStyleSheet("font-weight: bold; padding: 8px;")
+        apply_btn.setStyleSheet("font-weight: bold; padding: 5px;")
         apply_btn.clicked.connect(self._apply_to_preview)
         layout.addWidget(apply_btn)
 
@@ -217,9 +227,10 @@ class QSSThemeEditor(QWidget):
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
         self.preview = QSSPreviewWidget()
-        layout.addWidget(self.preview)
+        layout.addWidget(self.preview, 1)  # Expand to fill space
 
         return container
 
@@ -240,12 +251,16 @@ class QSSThemeEditor(QWidget):
         )
         self._update_palette_pickers()
         self._generate_qss_from_palette()
+        # Reset unsaved flag after initialization
+        self.unsaved_changes = False
 
     def _update_palette_pickers(self):
         """Update color pickers with current palette"""
         for prop_name, picker in self.color_pickers.items():
+            picker.blockSignals(True)  # Block signals during update
             color = getattr(self.current_palette, prop_name)
             picker.set_color(color)
+            picker.blockSignals(False)  # Re-enable signals
 
     def _on_color_changed(self, property_name: str):
         """Handle color picker change"""
@@ -315,13 +330,18 @@ class QSSThemeEditor(QWidget):
 
         self._update_palette_pickers()
         self._generate_qss_from_palette()
+        # Reset unsaved flag after template change
+        self.unsaved_changes = False
 
     # ==================== QSS Operations ====================
 
     def _generate_qss_from_palette(self):
         """Generate QSS code from current palette"""
         qss = self.current_palette.generate_qss()
+        # Block signals to prevent triggering "unsaved changes"
+        self.code_editor.blockSignals(True)
         self.code_editor.setPlainText(qss)
+        self.code_editor.blockSignals(False)
         self._apply_to_preview()
 
     def _extract_palette_from_qss(self):
