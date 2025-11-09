@@ -328,7 +328,7 @@ class WindowsTerminalEditor(QWidget):
             self.import_btn.setEnabled(True)
             self.save_btn.setEnabled(True)
 
-            QMessageBox.information(self, "Success", f"Loaded {len(schemes)} themes from settings.json")
+            # Success - no popup, just update UI silently
 
         except json.JSONDecodeError as e:
             QMessageBox.critical(self, "Parse Error", f"Failed to parse settings.json:\n{e}")
