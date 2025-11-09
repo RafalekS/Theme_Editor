@@ -351,12 +351,16 @@ class ThemeEditorMainWindow(QMainWindow):
     def _convert_json_to_qss(self):
         """Convert Terminal JSON theme to QSS"""
         self.tab_widget.setCurrentIndex(4)  # Switch to Converter tab
-        QMessageBox.information(self, "Converter", "Theme conversion functionality coming soon!")
+        # Pre-select Terminal as source
+        self.converter_tab.source_combo.setCurrentText("Terminal JSON")
+        self.converter_tab.target_combo.setCurrentText("QSS")
 
     def _convert_qss_to_json(self):
         """Convert QSS theme to Terminal JSON"""
         self.tab_widget.setCurrentIndex(4)  # Switch to Converter tab
-        QMessageBox.information(self, "Converter", "Theme conversion functionality coming soon!")
+        # Pre-select QSS as source
+        self.converter_tab.source_combo.setCurrentText("QSS")
+        self.converter_tab.target_combo.setCurrentText("Terminal JSON")
 
     def _open_image_converter(self):
         """Open Image Converter utility"""

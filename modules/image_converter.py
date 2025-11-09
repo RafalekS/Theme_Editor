@@ -353,8 +353,9 @@ class ImageConverterDialog(QDialog):
             images = []
 
             for size in sizes:
+                # Resize to exact size (not thumbnail which maintains aspect ratio)
                 resized = self.current_image.copy()
-                resized.thumbnail(size, Image.Resampling.LANCZOS)
+                resized = resized.resize(size, Image.Resampling.LANCZOS)
 
                 # Convert to RGBA if needed
                 if resized.mode != 'RGBA':
@@ -362,8 +363,13 @@ class ImageConverterDialog(QDialog):
 
                 images.append(resized)
 
-            # Save all sizes to ICO
-            images[0].save(file_path, format='ICO', sizes=[(img.width, img.height) for img in images], append_images=images[1:])
+            # Save all sizes to ICO - must specify all sizes explicitly
+            images[0].save(
+                file_path,
+                format='ICO',
+                sizes=sizes,
+                append_images=images[1:]
+            )
 
             self.progress_bar.setValue(100)
 
@@ -431,11 +437,11 @@ class ImageConverterDialog(QDialog):
                     images = []
                     for size in sizes:
                         resized = img.copy()
-                        resized.thumbnail(size, Image.Resampling.LANCZOS)
+                        resized = resized.resize(size, Image.Resampling.LANCZOS)
                         if resized.mode != 'RGBA':
                             resized = resized.convert('RGBA')
                         images.append(resized)
-                    images[0].save(output_path, format='ICO', sizes=[(im.width, im.height) for im in images], append_images=images[1:])
+                    images[0].save(output_path, format='ICO', sizes=sizes, append_images=images[1:])
                 else:
                     save_kwargs = {}
                     if output_path.suffix.lower() in ('.jpg', '.jpeg', '.webp'):
