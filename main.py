@@ -315,7 +315,7 @@ class ThemeEditorMainWindow(QMainWindow):
         elif current_index == 3:  # CustomTkinter
             self.ctk_editor_tab._open_theme()
         elif current_index == 4:  # Qt Widget Themes
-            QMessageBox.information(self, "Qt Widget Themes", "Use the dropdown to select from loaded themes.\nThemes are automatically loaded from config/qt_widget_themes/qt_themes.json")
+            self.qt_widget_editor_tab._open_theme()
         else:
             QMessageBox.information(self, "Open", "Open file not applicable for this tab")
 

@@ -220,6 +220,12 @@ class QtWidgetThemeEditor(QWidget):
         self.delete_theme_btn.clicked.connect(self._delete_theme)
         controls_layout.addWidget(self.delete_theme_btn)
 
+        controls_layout.addWidget(QLabel("|"))  # Separator
+
+        self.load_file_btn = QPushButton("Load from File...")
+        self.load_file_btn.clicked.connect(self._load_from_file)
+        controls_layout.addWidget(self.load_file_btn)
+
         self.save_btn = QPushButton("Save All")
         self.save_btn.clicked.connect(self._save_themes)
         controls_layout.addWidget(self.save_btn)
@@ -557,6 +563,98 @@ class QtWidgetThemeEditor(QWidget):
             QMessageBox.information(self, "Success", "Qt widget themes saved successfully")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save themes:\n{e}")
+
+    def _load_from_file(self):
+        """Load Qt Widget themes from external JSON file"""
+        from PyQt6.QtWidgets import QFileDialog
+
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Load Qt Widget Themes",
+            str(self.theme_manager.qt_widget_themes_dir),
+            "JSON Files (*.json);;All Files (*)"
+        )
+
+        if not filename:
+            return
+
+        try:
+            # Load themes from selected file
+            loaded_themes = self.theme_manager.load_qt_widget_themes(filename)
+
+            if not loaded_themes:
+                QMessageBox.warning(self, "No Themes", f"No valid Qt Widget themes found in:\n{filename}")
+                return
+
+            # Ask user if they want to merge or replace
+            reply = QMessageBox.question(
+                self,
+                "Load Themes",
+                f"Found {len(loaded_themes)} theme(s) in the file.\n\n"
+                f"Do you want to:\n"
+                f"• Yes: Merge with existing themes (keep both)\n"
+                f"• No: Replace all existing themes\n"
+                f"• Cancel: Cancel loading",
+                QMessageBox.StandardButton.Yes |
+                QMessageBox.StandardButton.No |
+                QMessageBox.StandardButton.Cancel
+            )
+
+            if reply == QMessageBox.StandardButton.Cancel:
+                return
+            elif reply == QMessageBox.StandardButton.Yes:
+                # Merge - add to existing themes
+                conflicts = []
+                for name in loaded_themes:
+                    if name in self.themes:
+                        conflicts.append(name)
+
+                if conflicts:
+                    conflict_msg = QMessageBox.question(
+                        self,
+                        "Name Conflicts",
+                        f"The following themes already exist:\n{', '.join(conflicts[:5])}"
+                        f"{' ...' if len(conflicts) > 5 else ''}\n\n"
+                        f"Overwrite existing themes?",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                    )
+
+                    if conflict_msg == QMessageBox.StandardButton.No:
+                        # Skip conflicting themes
+                        for name in conflicts:
+                            del loaded_themes[name]
+
+                # Merge
+                self.themes.update(loaded_themes)
+            else:
+                # Replace all
+                self.themes = loaded_themes
+
+            # Update UI
+            self.theme_combo.blockSignals(True)
+            self.theme_combo.clear()
+            self.theme_combo.addItems(sorted(self.themes.keys()))
+            self.theme_combo.blockSignals(False)
+
+            if self.themes:
+                self.theme_combo.setCurrentIndex(0)
+                self._on_theme_changed(self.theme_combo.currentText())
+
+            self.unsaved_changes = True
+            self.themeModified.emit()
+
+            QMessageBox.information(
+                self,
+                "Success",
+                f"Loaded {len(loaded_themes)} theme(s) from:\n{filename}"
+            )
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to load themes:\n{e}")
+
+    def _open_theme(self):
+        """Open theme file (wrapper for main.py compatibility)"""
+        self._load_from_file()
 
     def _apply_preview(self):
         """Apply current theme to preview panel"""
