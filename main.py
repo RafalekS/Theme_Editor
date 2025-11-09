@@ -15,7 +15,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTabWidget, QLabel, QMessageBox, QPushButton, QStatusBar,
-    QMenuBar, QMenu, QFileDialog
+    QMenuBar, QMenu, QFileDialog, QDialog, QComboBox, QGroupBox
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction, QIcon
@@ -225,6 +225,13 @@ class ThemeEditorMainWindow(QMainWindow):
         # Tools Menu
         tools_menu = menubar.addMenu("&Tools")
 
+        # Settings
+        settings_action = QAction("&Settings", self)
+        settings_action.triggered.connect(self._show_settings)
+        tools_menu.addAction(settings_action)
+
+        tools_menu.addSeparator()
+
         # Convert JSON to QSS
         convert_json_qss = QAction("Convert Terminal � QSS", self)
         convert_json_qss.triggered.connect(self._convert_json_to_qss)
@@ -273,12 +280,89 @@ class ThemeEditorMainWindow(QMainWindow):
         # Update status when tab changes
         self.tab_widget.currentChanged.connect(self._update_status_bar)
 
-    def _apply_app_theme(self):
-        """Apply QSS theme to the application"""
-        theme_path = Path(__file__).parent / "config" / "app_theme.qss"
-        if theme_path.exists():
-            with open(theme_path, 'r', encoding='utf-8') as f:
-                self.setStyleSheet(f.read())
+    def _load_app_config(self) -> dict:
+        """Load application configuration from config.json"""
+        import json
+        config_path = Path(__file__).parent / "config" / "config.json"
+
+        # Default config
+        default_config = {
+            "app_theme": "Gruvbox Dark",  # Default theme name
+            "window_geometry": None,
+            "last_tab": 0
+        }
+
+        if config_path.exists():
+            try:
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    # Merge with defaults
+                    return {**default_config, **config}
+            except Exception as e:
+                print(f"Error loading config: {e}")
+                return default_config
+        else:
+            return default_config
+
+    def _save_app_config(self, config: dict):
+        """Save application configuration to config.json"""
+        import json
+        config_path = Path(__file__).parent / "config" / "config.json"
+
+        try:
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=2)
+        except Exception as e:
+            print(f"Error saving config: {e}")
+
+    def _apply_app_theme(self, theme_name: str = None):
+        """Apply Qt Widget theme to the application
+
+        Args:
+            theme_name: Name of theme to apply. If None, loads from config.
+        """
+        # Load config to get theme name if not provided
+        if theme_name is None:
+            config = self._load_app_config()
+            theme_name = config.get("app_theme", "Gruvbox Dark")
+
+        # Load Qt Widget themes
+        qt_themes = self.theme_manager.load_qt_widget_themes()
+
+        if theme_name in qt_themes:
+            # Generate stylesheet from the theme
+            theme = qt_themes[theme_name]
+            stylesheet = theme.generate_stylesheet()
+            self.setStyleSheet(stylesheet)
+            self.status_label.setText(f"Applied theme: {theme_name}")
+        else:
+            # Fallback to default dark theme if specified theme not found
+            self.status_label.setText(f"Theme '{theme_name}' not found, using default")
+            # Apply a basic dark theme as fallback
+            basic_dark = """
+                QWidget {
+                    background-color: #2B2B2B;
+                    color: #FFFFFF;
+                }
+                QPushButton {
+                    background-color: #0078D4;
+                    color: #FFFFFF;
+                    border: 1px solid #555;
+                    border-radius: 4px;
+                    padding: 6px 12px;
+                }
+                QPushButton:hover {
+                    background-color: #1084D8;
+                }
+                QLineEdit, QTextEdit, QComboBox {
+                    background-color: #3C3C3C;
+                    color: #FFFFFF;
+                    border: 1px solid #555;
+                    border-radius: 3px;
+                    padding: 4px;
+                }
+            """
+            self.setStyleSheet(basic_dark)
 
     # ==================== Menu Actions ====================
 
@@ -382,6 +466,27 @@ class ThemeEditorMainWindow(QMainWindow):
         from modules.image_converter import ImageConverterDialog
         dialog = ImageConverterDialog(self)
         dialog.exec()
+
+    def _show_settings(self):
+        """Show application settings dialog"""
+        dialog = SettingsDialog(self, self.theme_manager)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            # Get selected theme
+            selected_theme = dialog.get_selected_theme()
+
+            # Save to config
+            config = self._load_app_config()
+            config["app_theme"] = selected_theme
+            self._save_app_config(config)
+
+            # Apply the theme
+            self._apply_app_theme(selected_theme)
+
+            QMessageBox.information(
+                self,
+                "Theme Applied",
+                f"Theme '{selected_theme}' has been applied.\n\nThe theme will be used the next time you start the application."
+            )
 
     def _show_documentation(self):
         """Show documentation"""
@@ -503,6 +608,124 @@ class ThemeEditorMainWindow(QMainWindow):
                 event.ignore()
         else:
             event.accept()
+
+
+class SettingsDialog(QDialog):
+    """Settings dialog for application theme selection"""
+
+    def __init__(self, parent, theme_manager: ThemeManager):
+        super().__init__(parent)
+        self.theme_manager = theme_manager
+        self.setWindowTitle("Settings")
+        self.setMinimumWidth(500)
+        self.setMinimumHeight(200)
+
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Setup dialog UI"""
+        layout = QVBoxLayout(self)
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
+
+        # Title
+        title_label = QLabel("Application Settings")
+        title_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
+        layout.addWidget(title_label)
+
+        # Theme selection group
+        theme_group = QGroupBox("Application Theme")
+        theme_layout = QVBoxLayout(theme_group)
+
+        # Description
+        desc_label = QLabel("Select a theme to apply to the Theme Editor application:")
+        desc_label.setWordWrap(True)
+        theme_layout.addWidget(desc_label)
+
+        # Theme dropdown
+        theme_select_layout = QHBoxLayout()
+        theme_select_layout.addWidget(QLabel("Theme:"))
+
+        self.theme_combo = QComboBox()
+        self.theme_combo.setMinimumWidth(300)
+
+        # Load available themes from qt_themes.json
+        try:
+            qt_themes = self.theme_manager.load_qt_widget_themes()
+            theme_names = sorted(qt_themes.keys())
+            self.theme_combo.addItems(theme_names)
+
+            # Select current theme
+            from pathlib import Path
+            import json
+            config_path = Path(__file__).parent / "config" / "config.json"
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    current_theme = config.get("app_theme", "Gruvbox Dark")
+                    if current_theme in theme_names:
+                        self.theme_combo.setCurrentText(current_theme)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Failed to load themes:\n{e}")
+
+        theme_select_layout.addWidget(self.theme_combo)
+        theme_select_layout.addStretch()
+        theme_layout.addLayout(theme_select_layout)
+
+        # Preview button
+        preview_btn = QPushButton("Preview Theme")
+        preview_btn.clicked.connect(self._preview_theme)
+        theme_layout.addWidget(preview_btn)
+
+        layout.addWidget(theme_group)
+
+        # Info label
+        info_label = QLabel("Note: Themes are loaded from config/qt_widget_themes/qt_themes.json")
+        info_label.setStyleSheet("color: #888; font-size: 9pt;")
+        layout.addWidget(info_label)
+
+        layout.addStretch()
+
+        # Buttons
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        ok_btn = QPushButton("OK")
+        ok_btn.setDefault(True)
+        ok_btn.clicked.connect(self.accept)
+        button_layout.addWidget(ok_btn)
+
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(cancel_btn)
+
+        layout.addLayout(button_layout)
+
+    def _preview_theme(self):
+        """Preview the selected theme"""
+        selected_theme = self.theme_combo.currentText()
+
+        # Load the theme and apply it to the parent window temporarily
+        try:
+            qt_themes = self.theme_manager.load_qt_widget_themes()
+            if selected_theme in qt_themes:
+                theme = qt_themes[selected_theme]
+                stylesheet = theme.generate_stylesheet()
+
+                # Apply to parent window
+                self.parent().setStyleSheet(stylesheet)
+
+                QMessageBox.information(
+                    self,
+                    "Preview",
+                    f"Theme '{selected_theme}' applied as preview.\n\nClick OK to save, or Cancel to revert."
+                )
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Failed to preview theme:\n{e}")
+
+    def get_selected_theme(self) -> str:
+        """Get the selected theme name"""
+        return self.theme_combo.currentText()
 
 
 def main():
