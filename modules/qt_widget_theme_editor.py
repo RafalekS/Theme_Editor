@@ -6,7 +6,8 @@ Editor for Qt Widget themes with comprehensive widget selector and live preview
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QComboBox,
     QListWidget, QTextEdit, QSplitter, QGroupBox, QLineEdit, QMessageBox,
-    QInputDialog, QScrollArea
+    QInputDialog, QScrollArea, QSpinBox, QRadioButton, QCheckBox,
+    QProgressBar, QSlider
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from pathlib import Path
@@ -272,25 +273,62 @@ class QtWidgetThemeEditor(QWidget):
         editor_layout.addWidget(widget_group, 1)
 
         # Style editor group
-        style_group = QGroupBox("Widget Style")
+        style_group = QGroupBox("Widget Style Editor")
         style_layout = QVBoxLayout(style_group)
 
         # Current widget label
         self.current_widget_label = QLabel("Select a widget to edit")
+        self.current_widget_label.setStyleSheet("font-weight: bold; font-size: 11pt;")
         style_layout.addWidget(self.current_widget_label)
 
-        # Style text editor
+        # Widget preview (show the actual widget being edited)
+        preview_label = QLabel("Preview:")
+        style_layout.addWidget(preview_label)
+
+        self.widget_preview_container = QWidget()
+        self.widget_preview_container.setMinimumHeight(80)
+        self.widget_preview_container.setStyleSheet("background-color: #F0F0F0; border: 1px solid #CCC; border-radius: 3px;")
+        preview_layout = QVBoxLayout(self.widget_preview_container)
+        preview_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.widget_preview = QLabel("No widget selected")
+        preview_layout.addWidget(self.widget_preview)
+        style_layout.addWidget(self.widget_preview_container)
+
+        # Visual style properties
+        props_scroll = QScrollArea()
+        props_scroll.setWidgetResizable(True)
+        props_scroll.setMaximumHeight(250)
+
+        props_widget = QWidget()
+        self.props_layout = QVBoxLayout(props_widget)
+        self.props_layout.setSpacing(8)
+        self.props_layout.addStretch()
+
+        props_scroll.setWidget(props_widget)
+        style_layout.addWidget(props_scroll)
+
+        # Raw CSS editor (collapsible)
+        self.show_css_btn = QPushButton("▼ Show Raw CSS")
+        self.show_css_btn.setCheckable(True)
+        self.show_css_btn.clicked.connect(self._toggle_css_editor)
+        style_layout.addWidget(self.show_css_btn)
+
         self.style_edit = QTextEdit()
         self.style_edit.setPlaceholderText("CSS-like style properties (e.g., background-color: #282828; color: #EBDBB2;)")
-        self.style_edit.textChanged.connect(self._on_style_changed)
-        style_layout.addWidget(self.style_edit, 1)
+        self.style_edit.setMaximumHeight(100)
+        self.style_edit.textChanged.connect(self._on_raw_style_changed)
+        self.style_edit.setVisible(False)
+        style_layout.addWidget(self.style_edit)
 
         # Apply button
-        self.apply_style_btn = QPushButton("Apply Style to Preview")
+        self.apply_style_btn = QPushButton("Apply to Full Preview")
         self.apply_style_btn.clicked.connect(self._apply_preview)
         style_layout.addWidget(self.apply_style_btn)
 
         editor_layout.addWidget(style_group, 1)
+
+        # Track if we're updating from code (to prevent loops)
+        self.updating_from_code = False
 
         main_splitter.addWidget(editor_widget)
 
@@ -371,11 +409,23 @@ class QtWidgetThemeEditor(QWidget):
 
         style = self.current_theme.get_widget_style(widget_selector)
 
+        self.updating_from_code = True
+
+        # Update raw CSS editor
         self.style_edit.blockSignals(True)
         self.style_edit.setPlainText(style or "")
         self.style_edit.blockSignals(False)
 
+        # Update label
         self.current_widget_label.setText(f"Editing: {widget_selector}")
+
+        # Update widget preview
+        self._update_widget_preview(widget_selector, style)
+
+        # Update visual property controls
+        self._update_visual_properties(style or "")
+
+        self.updating_from_code = False
 
     def _on_style_changed(self):
         """Handle style text change"""
@@ -579,56 +629,15 @@ class QtWidgetThemeEditor(QWidget):
             return
 
         try:
-            # Load themes from selected file
+            # Just load the themes - no merge/replace nonsense
             loaded_themes = self.theme_manager.load_qt_widget_themes(filename)
 
             if not loaded_themes:
                 QMessageBox.warning(self, "No Themes", f"No valid Qt Widget themes found in:\n{filename}")
                 return
 
-            # Ask user if they want to merge or replace
-            reply = QMessageBox.question(
-                self,
-                "Load Themes",
-                f"Found {len(loaded_themes)} theme(s) in the file.\n\n"
-                f"Do you want to:\n"
-                f"• Yes: Merge with existing themes (keep both)\n"
-                f"• No: Replace all existing themes\n"
-                f"• Cancel: Cancel loading",
-                QMessageBox.StandardButton.Yes |
-                QMessageBox.StandardButton.No |
-                QMessageBox.StandardButton.Cancel
-            )
-
-            if reply == QMessageBox.StandardButton.Cancel:
-                return
-            elif reply == QMessageBox.StandardButton.Yes:
-                # Merge - add to existing themes
-                conflicts = []
-                for name in loaded_themes:
-                    if name in self.themes:
-                        conflicts.append(name)
-
-                if conflicts:
-                    conflict_msg = QMessageBox.question(
-                        self,
-                        "Name Conflicts",
-                        f"The following themes already exist:\n{', '.join(conflicts[:5])}"
-                        f"{' ...' if len(conflicts) > 5 else ''}\n\n"
-                        f"Overwrite existing themes?",
-                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-                    )
-
-                    if conflict_msg == QMessageBox.StandardButton.No:
-                        # Skip conflicting themes
-                        for name in conflicts:
-                            del loaded_themes[name]
-
-                # Merge
-                self.themes.update(loaded_themes)
-            else:
-                # Replace all
-                self.themes = loaded_themes
+            # Simply replace with loaded themes
+            self.themes = loaded_themes
 
             # Update UI
             self.theme_combo.blockSignals(True)
@@ -643,11 +652,7 @@ class QtWidgetThemeEditor(QWidget):
             self.unsaved_changes = True
             self.themeModified.emit()
 
-            QMessageBox.information(
-                self,
-                "Success",
-                f"Loaded {len(loaded_themes)} theme(s) from:\n{filename}"
-            )
+            self.status_bar_message = f"Loaded {len(loaded_themes)} theme(s) from {Path(filename).name}"
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load themes:\n{e}")
@@ -667,3 +672,236 @@ class QtWidgetThemeEditor(QWidget):
     def has_unsaved_changes(self) -> bool:
         """Check if there are unsaved changes"""
         return self.unsaved_changes
+
+    def _toggle_css_editor(self):
+        """Toggle raw CSS editor visibility"""
+        if self.show_css_btn.isChecked():
+            self.style_edit.setVisible(True)
+            self.show_css_btn.setText("▲ Hide Raw CSS")
+        else:
+            self.style_edit.setVisible(False)
+            self.show_css_btn.setText("▼ Show Raw CSS")
+
+    def _on_raw_style_changed(self):
+        """Handle raw CSS text changes"""
+        if self.updating_from_code:
+            return
+
+        if not self.current_theme or not self.widget_list.currentItem():
+            return
+
+        widget_selector = self.widget_list.currentItem().text()
+        new_style = self.style_edit.toPlainText()
+
+        # Update theme
+        self.current_theme.add_widget_style(widget_selector, new_style)
+
+        # Update visual properties
+        self.updating_from_code = True
+        self._update_visual_properties(new_style)
+        self._update_widget_preview(widget_selector, new_style)
+        self.updating_from_code = False
+
+        self.unsaved_changes = True
+        self.themeModified.emit()
+
+    def _update_widget_preview(self, widget_selector: str, style: str):
+        """Update the widget preview to show what it looks like"""
+        # Clear old preview
+        layout = self.widget_preview_container.layout()
+        while layout.count() > 0:
+            item = layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        # Create appropriate widget based on selector
+        preview_widget = self._create_preview_widget(widget_selector)
+
+        if preview_widget:
+            # Apply the style to the preview widget
+            preview_widget.setStyleSheet(f"{widget_selector} {{ {style} }}")
+            layout.addWidget(preview_widget)
+        else:
+            # Fallback: show text
+            label = QLabel(f"Preview for {widget_selector}")
+            layout.addWidget(label)
+
+    def _create_preview_widget(self, selector: str):
+        """Create an actual Qt widget based on the selector"""
+        # Extract base widget name (without pseudo-states)
+        base_selector = selector.split(':')[0].split('::')[0].strip()
+
+        if base_selector == "QPushButton":
+            btn = QPushButton("Sample Button")
+            return btn
+        elif base_selector == "QLineEdit":
+            edit = QLineEdit()
+            edit.setPlaceholderText("Sample text...")
+            return edit
+        elif base_selector == "QLabel":
+            return QLabel("Sample Label")
+        elif base_selector == "QComboBox":
+            combo = QComboBox()
+            combo.addItems(["Option 1", "Option 2", "Option 3"])
+            return combo
+        elif base_selector == "QCheckBox":
+            return QCheckBox("Sample Checkbox")
+        elif base_selector == "QRadioButton":
+            return QRadioButton("Sample Radio")
+        elif base_selector == "QProgressBar":
+            progress = QProgressBar()
+            progress.setValue(65)
+            return progress
+        elif base_selector == "QSlider":
+            slider = QSlider(Qt.Orientation.Horizontal)
+            slider.setValue(50)
+            return slider
+        elif base_selector == "QSpinBox":
+            return QSpinBox()
+        elif base_selector == "QTextEdit":
+            edit = QTextEdit()
+            edit.setPlaceholderText("Sample text...")
+            edit.setMaximumHeight(60)
+            return edit
+        elif base_selector == "QListWidget":
+            list_widget = QListWidget()
+            list_widget.addItems(["Item 1", "Item 2", "Item 3"])
+            list_widget.setMaximumHeight(80)
+            return list_widget
+        elif base_selector == "QGroupBox":
+            group = QGroupBox("Sample Group")
+            layout = QVBoxLayout(group)
+            layout.addWidget(QLabel("Content"))
+            return group
+
+        # Default: just show a widget
+        return QWidget()
+
+    def _update_visual_properties(self, style: str):
+        """Parse CSS and create visual property controls"""
+        # Clear existing properties
+        while self.props_layout.count() > 1:  # Keep the stretch
+            item = self.props_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        if not style:
+            return
+
+        # Parse CSS properties
+        properties = self._parse_css_properties(style)
+
+        # Create controls for each property
+        from .color_picker import ColorPickerButton
+
+        for prop_name, prop_value in properties.items():
+            prop_layout = QHBoxLayout()
+
+            # Property label
+            label = QLabel(f"{prop_name}:")
+            label.setMinimumWidth(120)
+            prop_layout.addWidget(label)
+
+            # Check if it's a color property
+            if any(color_word in prop_name.lower() for color_word in ['color', 'background', 'border']) and prop_value.startswith('#'):
+                # Color picker
+                color_picker = ColorPickerButton(prop_value)
+                color_picker.colorChanged.connect(lambda c, p=prop_name: self._on_color_changed(p, c))
+                prop_layout.addWidget(color_picker)
+
+                # Show hex value
+                hex_label = QLabel(prop_value)
+                prop_layout.addWidget(hex_label)
+
+            elif prop_name in ['padding', 'margin', 'border-width'] and prop_value.replace('px', '').strip().isdigit():
+                # Spinbox for dimensions
+                spinbox = QSpinBox()
+                spinbox.setRange(0, 100)
+                spinbox.setValue(int(prop_value.replace('px', '').strip()))
+                spinbox.setSuffix(" px")
+                spinbox.valueChanged.connect(lambda v, p=prop_name: self._on_dimension_changed(p, v))
+                prop_layout.addWidget(spinbox)
+
+            elif prop_name == 'border-radius' and 'px' in prop_value:
+                # Spinbox for border radius
+                spinbox = QSpinBox()
+                spinbox.setRange(0, 50)
+                spinbox.setValue(int(prop_value.replace('px', '').strip()))
+                spinbox.setSuffix(" px")
+                spinbox.valueChanged.connect(lambda v, p=prop_name: self._on_dimension_changed(p, v))
+                prop_layout.addWidget(spinbox)
+
+            else:
+                # Text field for other properties
+                text_edit = QLineEdit(prop_value)
+                text_edit.textChanged.connect(lambda t, p=prop_name: self._on_text_property_changed(p, t))
+                prop_layout.addWidget(text_edit)
+
+            prop_layout.addStretch()
+            self.props_layout.insertLayout(self.props_layout.count() - 1, prop_layout)
+
+    def _parse_css_properties(self, style: str) -> dict:
+        """Parse CSS style string into property dict"""
+        properties = {}
+        if not style:
+            return properties
+
+        # Split by semicolon
+        parts = [p.strip() for p in style.split(';') if p.strip()]
+
+        for part in parts:
+            if ':' in part:
+                prop, value = part.split(':', 1)
+                properties[prop.strip()] = value.strip()
+
+        return properties
+
+    def _on_color_changed(self, prop_name: str, color: str):
+        """Handle color picker change"""
+        if self.updating_from_code:
+            return
+
+        self._update_css_property(prop_name, color)
+
+    def _on_dimension_changed(self, prop_name: str, value: int):
+        """Handle dimension spinbox change"""
+        if self.updating_from_code:
+            return
+
+        self._update_css_property(prop_name, f"{value}px")
+
+    def _on_text_property_changed(self, prop_name: str, value: str):
+        """Handle text property change"""
+        if self.updating_from_code:
+            return
+
+        self._update_css_property(prop_name, value)
+
+    def _update_css_property(self, prop_name: str, prop_value: str):
+        """Update a single CSS property in the current style"""
+        if not self.current_theme or not self.widget_list.currentItem():
+            return
+
+        widget_selector = self.widget_list.currentItem().text()
+        current_style = self.current_theme.get_widget_style(widget_selector) or ""
+
+        # Parse current properties
+        properties = self._parse_css_properties(current_style)
+
+        # Update property
+        properties[prop_name] = prop_value
+
+        # Rebuild CSS string
+        new_style = "; ".join([f"{k}: {v}" for k, v in properties.items()])
+
+        # Update theme
+        self.current_theme.add_widget_style(widget_selector, new_style)
+
+        # Update raw CSS editor
+        self.updating_from_code = True
+        self.style_edit.setPlainText(new_style)
+        self._update_widget_preview(widget_selector, new_style)
+        self.updating_from_code = False
+
+        self.unsaved_changes = True
+        self.themeModified.emit()
