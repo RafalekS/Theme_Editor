@@ -333,7 +333,7 @@ class QtWidgetThemeEditor(QWidget):
         main_splitter.addWidget(editor_widget)
 
         # Right side: Live preview
-        preview_widget = self._create_preview_widget()
+        preview_widget = self._create_full_preview_panel()
         main_splitter.addWidget(preview_widget)
 
         # Set initial splitter sizes (60% editor, 40% preview)
@@ -341,7 +341,7 @@ class QtWidgetThemeEditor(QWidget):
 
         layout.addWidget(main_splitter, 1)
 
-    def _create_preview_widget(self) -> QWidget:
+    def _create_full_preview_panel(self) -> QWidget:
         """Create the live preview widget with all Qt widgets"""
         from .preview_widgets import QtWidgetPreviewPanel
 
