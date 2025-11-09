@@ -288,7 +288,7 @@ class QtWidgetThemeEditor(QWidget):
 
         self.widget_preview_container = QWidget()
         self.widget_preview_container.setMinimumHeight(80)
-        self.widget_preview_container.setStyleSheet("background-color: #F0F0F0; border: 1px solid #CCC; border-radius: 3px;")
+        self.widget_preview_container.setStyleSheet("background-color: #2B2B2B; border: 1px solid #555; border-radius: 3px;")
         preview_layout = QVBoxLayout(self.widget_preview_container)
         preview_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.widget_preview = QLabel("No widget selected")
@@ -311,27 +311,27 @@ class QtWidgetThemeEditor(QWidget):
 
         props_scroll.setWidget(props_widget)
 
-        # Style the scroll area
+        # Style the scroll area for dark theme
         props_scroll.setStyleSheet("""
             QScrollArea {
                 background-color: transparent;
             }
             QWidget#props_content {
-                background-color: #FAFAFA;
+                background-color: #2B2B2B;
             }
             QScrollBar:vertical {
                 border: none;
-                background: #F0F0F0;
+                background: #1E1E1E;
                 width: 10px;
                 margin: 0;
             }
             QScrollBar::handle:vertical {
-                background: #C0C0C0;
+                background: #555555;
                 min-height: 30px;
                 border-radius: 5px;
             }
             QScrollBar::handle:vertical:hover {
-                background: #A0A0A0;
+                background: #777777;
             }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
                 height: 0px;
