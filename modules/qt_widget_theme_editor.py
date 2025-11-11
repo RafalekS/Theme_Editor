@@ -500,7 +500,7 @@ class QtWidgetThemeEditor(QWidget):
         # Check if widget exists in theme, if not add it
         if widget_selector not in self.current_theme.get_widget_selectors():
             # Add the widget with empty style
-            self.current_theme.set_widget_style(widget_selector, "")
+            self.current_theme.add_widget_style(widget_selector, "")
             self.widget_list.addItem(widget_selector)
             self._update_available_widgets()
 
