@@ -13,8 +13,9 @@ from PyQt6.QtWidgets import (
     QDial, QLCDNumber, QToolBar, QToolButton, QToolBox, QDockWidget,
     QHeaderView
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QEvent
 from PyQt6.QtGui import QFont, QTextCursor, QTextCharFormat, QColor
+from PyQt6.QtCore import pyqtSignal
 
 
 class TerminalPreviewWidget(QWidget):
@@ -428,9 +429,27 @@ class QtWidgetPreviewPanel(QWidget):
     Used by Qt Widget Theme Editor
     """
 
+    # Signal emitted when a widget is clicked (sends widget selector name)
+    widget_clicked = pyqtSignal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._widget_map = {}  # Maps widget instance to selector name
         self._setup_ui()
+
+    def _register_clickable_widget(self, widget, selector_name):
+        """Register a widget to emit signal when clicked"""
+        self._widget_map[widget] = selector_name
+        widget.installEventFilter(self)
+        widget.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def eventFilter(self, obj, event):
+        """Filter events to detect widget clicks"""
+        if event.type() == QEvent.Type.MouseButtonPress and obj in self._widget_map:
+            selector = self._widget_map[obj]
+            self.widget_clicked.emit(selector)
+            return False  # Let the event propagate
+        return super().eventFilter(obj, event)
 
     def _setup_ui(self):
         """Setup comprehensive widget preview"""
@@ -447,26 +466,43 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Buttons group
         buttons_group = QGroupBox("Buttons")
+        self._register_clickable_widget(buttons_group, "QGroupBox")
         buttons_layout = QVBoxLayout()
 
         # Regular buttons
         btn_row1 = QHBoxLayout()
-        btn_row1.addWidget(QPushButton("Normal Button"))
+        normal_btn = QPushButton("Normal Button")
+        self._register_clickable_widget(normal_btn, "QPushButton")
+        btn_row1.addWidget(normal_btn)
+
         disabled_btn = QPushButton("Disabled Button")
         disabled_btn.setEnabled(False)
+        self._register_clickable_widget(disabled_btn, "QPushButton:disabled")
         btn_row1.addWidget(disabled_btn)
-        btn_row1.addWidget(QPushButton("Hover Me"))
+
+        hover_btn = QPushButton("Hover Me")
+        self._register_clickable_widget(hover_btn, "QPushButton:hover")
+        btn_row1.addWidget(hover_btn)
         buttons_layout.addLayout(btn_row1)
 
         # Checkboxes and radio buttons
         check_radio_layout = QHBoxLayout()
-        check_radio_layout.addWidget(QCheckBox("Unchecked"))
+        checkbox1 = QCheckBox("Unchecked")
+        self._register_clickable_widget(checkbox1, "QCheckBox")
+        check_radio_layout.addWidget(checkbox1)
+
         checked = QCheckBox("Checked")
         checked.setChecked(True)
+        self._register_clickable_widget(checked, "QCheckBox::indicator:checked")
         check_radio_layout.addWidget(checked)
-        check_radio_layout.addWidget(QRadioButton("Radio 1"))
+
+        radio1 = QRadioButton("Radio 1")
+        self._register_clickable_widget(radio1, "QRadioButton")
+        check_radio_layout.addWidget(radio1)
+
         radio2 = QRadioButton("Radio 2")
         radio2.setChecked(True)
+        self._register_clickable_widget(radio2, "QRadioButton::indicator:checked")
         check_radio_layout.addWidget(radio2)
         buttons_layout.addLayout(check_radio_layout)
 
@@ -475,18 +511,21 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Input fields group
         inputs_group = QGroupBox("Input Fields")
+        self._register_clickable_widget(inputs_group, "QGroupBox")
         inputs_layout = QVBoxLayout()
 
         # Line edit
         inputs_layout.addWidget(QLabel("QLineEdit:"))
         line_edit = QLineEdit()
         line_edit.setPlaceholderText("Type here...")
+        self._register_clickable_widget(line_edit, "QLineEdit")
         inputs_layout.addWidget(line_edit)
 
         # Read-only line edit
         inputs_layout.addWidget(QLabel("QLineEdit (read-only):"))
         readonly_edit = QLineEdit("Read-only text")
         readonly_edit.setReadOnly(True)
+        self._register_clickable_widget(readonly_edit, "QLineEdit:read-only")
         inputs_layout.addWidget(readonly_edit)
 
         # Text edit
@@ -494,6 +533,7 @@ class QtWidgetPreviewPanel(QWidget):
         text_edit = QTextEdit()
         text_edit.setPlaceholderText("Multi-line text...")
         text_edit.setMaximumHeight(60)
+        self._register_clickable_widget(text_edit, "QTextEdit")
         inputs_layout.addWidget(text_edit)
 
         inputs_group.setLayout(inputs_layout)
@@ -501,20 +541,26 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Selection widgets group
         selection_group = QGroupBox("Selection Widgets")
+        self._register_clickable_widget(selection_group, "QGroupBox")
         selection_layout = QVBoxLayout()
 
         # ComboBox
         selection_layout.addWidget(QLabel("QComboBox:"))
         combo = QComboBox()
         combo.addItems(["Option 1", "Option 2", "Option 3", "Option 4"])
+        self._register_clickable_widget(combo, "QComboBox")
         selection_layout.addWidget(combo)
 
         # Spin boxes
         spin_layout = QHBoxLayout()
         spin_layout.addWidget(QLabel("QSpinBox:"))
-        spin_layout.addWidget(QSpinBox())
+        spinbox = QSpinBox()
+        self._register_clickable_widget(spinbox, "QSpinBox")
+        spin_layout.addWidget(spinbox)
         spin_layout.addWidget(QLabel("QDoubleSpinBox:"))
-        spin_layout.addWidget(QDoubleSpinBox())
+        doublespinbox = QDoubleSpinBox()
+        self._register_clickable_widget(doublespinbox, "QDoubleSpinBox")
+        spin_layout.addWidget(doublespinbox)
         selection_layout.addLayout(spin_layout)
 
         # List widget
@@ -523,6 +569,7 @@ class QtWidgetPreviewPanel(QWidget):
         list_widget.addItems(["Item 1", "Item 2 (selected)", "Item 3", "Item 4"])
         list_widget.setCurrentRow(1)
         list_widget.setMaximumHeight(80)
+        self._register_clickable_widget(list_widget, "QListWidget")
         selection_layout.addWidget(list_widget)
 
         selection_group.setLayout(selection_layout)
@@ -530,18 +577,21 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Progress and sliders group
         progress_group = QGroupBox("Progress & Sliders")
+        self._register_clickable_widget(progress_group, "QGroupBox")
         progress_layout = QVBoxLayout()
 
         # Progress bar
         progress_layout.addWidget(QLabel("QProgressBar:"))
         progress = QProgressBar()
         progress.setValue(65)
+        self._register_clickable_widget(progress, "QProgressBar")
         progress_layout.addWidget(progress)
 
         # Slider
         progress_layout.addWidget(QLabel("QSlider:"))
         slider = QSlider(Qt.Orientation.Horizontal)
         slider.setValue(50)
+        self._register_clickable_widget(slider, "QSlider")
         progress_layout.addWidget(slider)
 
         progress_group.setLayout(progress_layout)
@@ -549,6 +599,7 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Tabs group
         tabs_group = QGroupBox("QTabWidget")
+        self._register_clickable_widget(tabs_group, "QGroupBox")
         tabs_layout = QVBoxLayout()
 
         tab_widget = QTabWidget()
@@ -556,6 +607,7 @@ class QtWidgetPreviewPanel(QWidget):
         tab_widget.addTab(QLabel("Content of Tab 2"), "Tab 2")
         tab_widget.addTab(QLabel("Content of Tab 3"), "Tab 3")
         tab_widget.setMaximumHeight(100)
+        self._register_clickable_widget(tab_widget, "QTabWidget")
         tabs_layout.addWidget(tab_widget)
 
         tabs_group.setLayout(tabs_layout)
@@ -563,6 +615,7 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Scrollbar demo
         scroll_group = QGroupBox("QScrollBar & QScrollArea")
+        self._register_clickable_widget(scroll_group, "QGroupBox")
         scroll_layout = QVBoxLayout()
 
         scroll_area = QScrollArea()
@@ -572,6 +625,7 @@ class QtWidgetPreviewPanel(QWidget):
             scroll_content_layout.addWidget(QLabel(f"Scroll content line {i + 1}"))
         scroll_area.setWidget(scroll_content)
         scroll_area.setMaximumHeight(80)
+        self._register_clickable_widget(scroll_area, "QScrollArea")
         scroll_layout.addWidget(scroll_area)
 
         scroll_group.setLayout(scroll_layout)
@@ -579,6 +633,7 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Menu and status bar demo
         menu_group = QGroupBox("QMenuBar & QStatusBar Preview")
+        self._register_clickable_widget(menu_group, "QGroupBox")
         menu_layout = QVBoxLayout()
         menu_layout.addWidget(QLabel("(Menu and status bars are shown in main window)"))
         menu_group.setLayout(menu_layout)
@@ -586,12 +641,14 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Splitter demo
         splitter_group = QGroupBox("QSplitter")
+        self._register_clickable_widget(splitter_group, "QGroupBox")
         splitter_layout = QVBoxLayout()
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(QLabel("Left pane"))
         splitter.addWidget(QLabel("Right pane"))
         splitter.setMaximumHeight(50)
+        self._register_clickable_widget(splitter, "QSplitter")
         splitter_layout.addWidget(splitter)
 
         splitter_group.setLayout(splitter_layout)
@@ -599,6 +656,7 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Tree and Table widgets group
         tree_table_group = QGroupBox("QTreeWidget & QTableWidget")
+        self._register_clickable_widget(tree_table_group, "QGroupBox")
         tree_table_layout = QHBoxLayout()
 
         # Tree widget
@@ -617,6 +675,7 @@ class QtWidgetPreviewPanel(QWidget):
 
         tree.expandAll()
         tree.setCurrentItem(root2)
+        self._register_clickable_widget(tree, "QTreeWidget")
         tree_layout.addWidget(tree)
         tree_table_layout.addLayout(tree_layout)
 
@@ -632,6 +691,7 @@ class QtWidgetPreviewPanel(QWidget):
                 table.setItem(row, col, QTableWidgetItem(f"R{row}C{col}"))
 
         table.selectRow(1)
+        self._register_clickable_widget(table, "QTableWidget")
         table_layout.addWidget(table)
         tree_table_layout.addLayout(table_layout)
 
@@ -640,6 +700,7 @@ class QtWidgetPreviewPanel(QWidget):
 
         # PlainTextEdit and Frame group
         plain_frame_group = QGroupBox("QPlainTextEdit & QFrame")
+        self._register_clickable_widget(plain_frame_group, "QGroupBox")
         plain_frame_layout = QHBoxLayout()
 
         # PlainTextEdit
@@ -648,6 +709,7 @@ class QtWidgetPreviewPanel(QWidget):
         plain_text = QPlainTextEdit()
         plain_text.setPlainText("Plain text editor\nLine 2\nLine 3")
         plain_text.setMaximumHeight(80)
+        self._register_clickable_widget(plain_text, "QPlainTextEdit")
         plain_layout.addWidget(plain_text)
         plain_frame_layout.addLayout(plain_layout)
 
@@ -660,6 +722,7 @@ class QtWidgetPreviewPanel(QWidget):
         frame.setMinimumHeight(80)
         frame_inner = QVBoxLayout(frame)
         frame_inner.addWidget(QLabel("Content inside QFrame"))
+        self._register_clickable_widget(frame, "QFrame")
         frame_layout.addWidget(frame)
         plain_frame_layout.addLayout(frame_layout)
 
@@ -668,28 +731,36 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Date/Time widgets group
         datetime_group = QGroupBox("Date & Time Widgets")
+        self._register_clickable_widget(datetime_group, "QGroupBox")
         datetime_layout = QGridLayout()
 
         datetime_layout.addWidget(QLabel("QDateEdit:"), 0, 0)
         date_edit = QDateEdit()
         date_edit.setCalendarPopup(True)
+        self._register_clickable_widget(date_edit, "QDateEdit")
         datetime_layout.addWidget(date_edit, 0, 1)
 
         datetime_layout.addWidget(QLabel("QTimeEdit:"), 0, 2)
-        datetime_layout.addWidget(QTimeEdit(), 0, 3)
+        time_edit = QTimeEdit()
+        self._register_clickable_widget(time_edit, "QTimeEdit")
+        datetime_layout.addWidget(time_edit, 0, 3)
 
         datetime_layout.addWidget(QLabel("QDateTimeEdit:"), 1, 0)
-        datetime_layout.addWidget(QDateTimeEdit(), 1, 1, 1, 3)
+        datetime_edit = QDateTimeEdit()
+        self._register_clickable_widget(datetime_edit, "QDateTimeEdit")
+        datetime_layout.addWidget(datetime_edit, 1, 1, 1, 3)
 
         datetime_group.setLayout(datetime_layout)
         main_layout.addWidget(datetime_group)
 
         # Calendar widget group
         calendar_group = QGroupBox("QCalendarWidget")
+        self._register_clickable_widget(calendar_group, "QGroupBox")
         calendar_layout = QVBoxLayout()
 
         calendar = QCalendarWidget()
         calendar.setMaximumHeight(200)
+        self._register_clickable_widget(calendar, "QCalendarWidget")
         calendar_layout.addWidget(calendar)
 
         calendar_group.setLayout(calendar_layout)
@@ -697,6 +768,7 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Dial and LCD group
         dial_lcd_group = QGroupBox("QDial & QLCDNumber")
+        self._register_clickable_widget(dial_lcd_group, "QGroupBox")
         dial_lcd_layout = QHBoxLayout()
 
         # Dial
@@ -708,6 +780,7 @@ class QtWidgetPreviewPanel(QWidget):
         dial.setValue(75)
         dial.setNotchesVisible(True)
         dial.setMaximumSize(100, 100)
+        self._register_clickable_widget(dial, "QDial")
         dial_layout.addWidget(dial)
         dial_layout.addStretch()
         dial_lcd_layout.addLayout(dial_layout)
@@ -719,6 +792,7 @@ class QtWidgetPreviewPanel(QWidget):
         lcd.setDigitCount(6)
         lcd.display(123.45)
         lcd.setMaximumHeight(60)
+        self._register_clickable_widget(lcd, "QLCDNumber")
         lcd_layout.addWidget(lcd)
         lcd_layout.addStretch()
         dial_lcd_layout.addLayout(lcd_layout)
@@ -728,6 +802,7 @@ class QtWidgetPreviewPanel(QWidget):
 
         # ToolBar and ToolButton group
         toolbar_group = QGroupBox("QToolBar & QToolButton")
+        self._register_clickable_widget(toolbar_group, "QGroupBox")
         toolbar_layout = QVBoxLayout()
 
         toolbar = QToolBar("Sample Toolbar")
@@ -737,8 +812,10 @@ class QtWidgetPreviewPanel(QWidget):
 
         tool_btn = QToolButton()
         tool_btn.setText("Tool Button")
+        self._register_clickable_widget(tool_btn, "QToolButton")
         toolbar.addWidget(tool_btn)
 
+        self._register_clickable_widget(toolbar, "QToolBar")
         toolbar_layout.addWidget(toolbar)
 
         # Standalone tool buttons
@@ -746,12 +823,14 @@ class QtWidgetPreviewPanel(QWidget):
         tool_btn_row.addWidget(QLabel("QToolButton:"))
         tool_btn1 = QToolButton()
         tool_btn1.setText("Normal")
+        self._register_clickable_widget(tool_btn1, "QToolButton")
         tool_btn_row.addWidget(tool_btn1)
 
         tool_btn2 = QToolButton()
         tool_btn2.setText("Checkable")
         tool_btn2.setCheckable(True)
         tool_btn2.setChecked(True)
+        self._register_clickable_widget(tool_btn2, "QToolButton:checked")
         tool_btn_row.addWidget(tool_btn2)
         tool_btn_row.addStretch()
 
@@ -762,6 +841,7 @@ class QtWidgetPreviewPanel(QWidget):
 
         # ToolBox group
         toolbox_group = QGroupBox("QToolBox")
+        self._register_clickable_widget(toolbox_group, "QGroupBox")
         toolbox_layout = QVBoxLayout()
 
         toolbox = QToolBox()
@@ -769,6 +849,7 @@ class QtWidgetPreviewPanel(QWidget):
         toolbox.addItem(QLabel("Content of Page 2"), "Page 2")
         toolbox.addItem(QLabel("Content of Page 3"), "Page 3")
         toolbox.setMaximumHeight(150)
+        self._register_clickable_widget(toolbox, "QToolBox")
         toolbox_layout.addWidget(toolbox)
 
         toolbox_group.setLayout(toolbox_layout)

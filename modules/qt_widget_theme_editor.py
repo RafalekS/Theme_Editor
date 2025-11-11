@@ -405,6 +405,8 @@ class QtWidgetThemeEditor(QWidget):
 
         # Preview panel
         self.preview_panel = QtWidgetPreviewPanel()
+        # Connect widget click signal to select widget in editor
+        self.preview_panel.widget_clicked.connect(self._on_preview_widget_clicked)
         scroll_area.setWidget(self.preview_panel)
 
         preview_layout.addWidget(scroll_area, 1)
@@ -489,6 +491,25 @@ class QtWidgetThemeEditor(QWidget):
         self._update_visual_properties(style or "")
 
         self.updating_from_code = False
+
+    def _on_preview_widget_clicked(self, widget_selector: str):
+        """Handle widget click from preview panel"""
+        if not self.current_theme:
+            return
+
+        # Check if widget exists in theme, if not add it
+        if widget_selector not in self.current_theme.get_widget_selectors():
+            # Add the widget with empty style
+            self.current_theme.set_widget_style(widget_selector, "")
+            self.widget_list.addItem(widget_selector)
+            self._update_available_widgets()
+
+        # Find and select the widget in the list
+        items = self.widget_list.findItems(widget_selector, Qt.MatchFlag.MatchExactly)
+        if items:
+            self.widget_list.setCurrentItem(items[0])
+            # Scroll to make it visible
+            self.widget_list.scrollToItem(items[0])
 
     def _on_style_changed(self):
         """Handle style text change"""
