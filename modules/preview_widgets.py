@@ -443,12 +443,23 @@ class QtWidgetPreviewPanel(QWidget):
         widget.installEventFilter(self)
         widget.setCursor(Qt.CursorShape.PointingHandCursor)
 
+        # Also install event filter on all child widgets to catch clicks
+        # on composite widgets (e.g., clicking tab bar in QTabWidget)
+        for child in widget.findChildren(QWidget):
+            child.installEventFilter(self)
+
     def eventFilter(self, obj, event):
         """Filter events to detect widget clicks"""
-        if event.type() == QEvent.Type.MouseButtonPress and obj in self._widget_map:
-            selector = self._widget_map[obj]
-            self.widget_clicked.emit(selector)
-            return False  # Let the event propagate
+        if event.type() == QEvent.Type.MouseButtonPress:
+            # Walk up the parent hierarchy to find the closest registered widget
+            # This handles composite widgets (e.g., clicking on tab bar finds QTabWidget)
+            current = obj
+            while current is not None:
+                if current in self._widget_map:
+                    selector = self._widget_map[current]
+                    self.widget_clicked.emit(selector)
+                    return False  # Let the event propagate
+                current = current.parentWidget()
         return super().eventFilter(obj, event)
 
     def _setup_ui(self):
@@ -466,7 +477,6 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Buttons group
         buttons_group = QGroupBox("Buttons")
-        self._register_clickable_widget(buttons_group, "QGroupBox")
         buttons_layout = QVBoxLayout()
 
         # Regular buttons
@@ -511,7 +521,6 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Input fields group
         inputs_group = QGroupBox("Input Fields")
-        self._register_clickable_widget(inputs_group, "QGroupBox")
         inputs_layout = QVBoxLayout()
 
         # Line edit
@@ -541,7 +550,6 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Selection widgets group
         selection_group = QGroupBox("Selection Widgets")
-        self._register_clickable_widget(selection_group, "QGroupBox")
         selection_layout = QVBoxLayout()
 
         # ComboBox
@@ -577,7 +585,6 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Progress and sliders group
         progress_group = QGroupBox("Progress & Sliders")
-        self._register_clickable_widget(progress_group, "QGroupBox")
         progress_layout = QVBoxLayout()
 
         # Progress bar
@@ -599,7 +606,6 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Tabs group
         tabs_group = QGroupBox("QTabWidget")
-        self._register_clickable_widget(tabs_group, "QGroupBox")
         tabs_layout = QVBoxLayout()
 
         tab_widget = QTabWidget()
@@ -615,7 +621,6 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Scrollbar demo
         scroll_group = QGroupBox("QScrollBar & QScrollArea")
-        self._register_clickable_widget(scroll_group, "QGroupBox")
         scroll_layout = QVBoxLayout()
 
         scroll_area = QScrollArea()
@@ -633,7 +638,6 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Menu and status bar demo
         menu_group = QGroupBox("QMenuBar & QStatusBar Preview")
-        self._register_clickable_widget(menu_group, "QGroupBox")
         menu_layout = QVBoxLayout()
         menu_layout.addWidget(QLabel("(Menu and status bars are shown in main window)"))
         menu_group.setLayout(menu_layout)
@@ -641,7 +645,6 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Splitter demo
         splitter_group = QGroupBox("QSplitter")
-        self._register_clickable_widget(splitter_group, "QGroupBox")
         splitter_layout = QVBoxLayout()
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -656,7 +659,6 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Tree and Table widgets group
         tree_table_group = QGroupBox("QTreeWidget & QTableWidget")
-        self._register_clickable_widget(tree_table_group, "QGroupBox")
         tree_table_layout = QHBoxLayout()
 
         # Tree widget
@@ -700,7 +702,6 @@ class QtWidgetPreviewPanel(QWidget):
 
         # PlainTextEdit and Frame group
         plain_frame_group = QGroupBox("QPlainTextEdit & QFrame")
-        self._register_clickable_widget(plain_frame_group, "QGroupBox")
         plain_frame_layout = QHBoxLayout()
 
         # PlainTextEdit
@@ -731,7 +732,6 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Date/Time widgets group
         datetime_group = QGroupBox("Date & Time Widgets")
-        self._register_clickable_widget(datetime_group, "QGroupBox")
         datetime_layout = QGridLayout()
 
         datetime_layout.addWidget(QLabel("QDateEdit:"), 0, 0)
@@ -755,7 +755,6 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Calendar widget group
         calendar_group = QGroupBox("QCalendarWidget")
-        self._register_clickable_widget(calendar_group, "QGroupBox")
         calendar_layout = QVBoxLayout()
 
         calendar = QCalendarWidget()
@@ -768,7 +767,6 @@ class QtWidgetPreviewPanel(QWidget):
 
         # Dial and LCD group
         dial_lcd_group = QGroupBox("QDial & QLCDNumber")
-        self._register_clickable_widget(dial_lcd_group, "QGroupBox")
         dial_lcd_layout = QHBoxLayout()
 
         # Dial
@@ -802,7 +800,6 @@ class QtWidgetPreviewPanel(QWidget):
 
         # ToolBar and ToolButton group
         toolbar_group = QGroupBox("QToolBar & QToolButton")
-        self._register_clickable_widget(toolbar_group, "QGroupBox")
         toolbar_layout = QVBoxLayout()
 
         toolbar = QToolBar("Sample Toolbar")
@@ -841,7 +838,6 @@ class QtWidgetPreviewPanel(QWidget):
 
         # ToolBox group
         toolbox_group = QGroupBox("QToolBox")
-        self._register_clickable_widget(toolbox_group, "QGroupBox")
         toolbox_layout = QVBoxLayout()
 
         toolbox = QToolBox()
