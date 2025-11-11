@@ -8,7 +8,10 @@ from PyQt6.QtWidgets import (
     QTextEdit, QLabel, QFrame, QPushButton, QLineEdit, QComboBox,
     QSpinBox, QDoubleSpinBox, QCheckBox, QRadioButton, QProgressBar, QSlider,
     QListWidget, QTreeWidget, QTableWidget, QTabWidget, QGroupBox,
-    QScrollArea, QTreeWidgetItem, QTableWidgetItem, QSplitter
+    QScrollArea, QTreeWidgetItem, QTableWidgetItem, QSplitter,
+    QPlainTextEdit, QDateEdit, QTimeEdit, QDateTimeEdit, QCalendarWidget,
+    QDial, QLCDNumber, QToolBar, QToolButton, QToolBox, QDockWidget,
+    QHeaderView
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QTextCursor, QTextCharFormat, QColor
@@ -431,7 +434,14 @@ class QtWidgetPreviewPanel(QWidget):
 
     def _setup_ui(self):
         """Setup comprehensive widget preview"""
-        main_layout = QVBoxLayout(self)
+        # Create scrollable area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+        # Container for all widgets
+        container = QWidget()
+        main_layout = QVBoxLayout(container)
         main_layout.setContentsMargins(10, 10, 10, 10)
         main_layout.setSpacing(15)
 
@@ -587,5 +597,198 @@ class QtWidgetPreviewPanel(QWidget):
         splitter_group.setLayout(splitter_layout)
         main_layout.addWidget(splitter_group)
 
+        # Tree and Table widgets group
+        tree_table_group = QGroupBox("QTreeWidget & QTableWidget")
+        tree_table_layout = QHBoxLayout()
+
+        # Tree widget
+        tree_layout = QVBoxLayout()
+        tree_layout.addWidget(QLabel("QTreeWidget:"))
+        tree = QTreeWidget()
+        tree.setHeaderLabels(["Name", "Value"])
+        tree.setMaximumHeight(120)
+
+        root1 = QTreeWidgetItem(tree, ["Root 1", "100"])
+        child1 = QTreeWidgetItem(root1, ["Child 1.1", "50"])
+        child2 = QTreeWidgetItem(root1, ["Child 1.2", "50"])
+
+        root2 = QTreeWidgetItem(tree, ["Root 2 (selected)", "200"])
+        child3 = QTreeWidgetItem(root2, ["Child 2.1", "100"])
+
+        tree.expandAll()
+        tree.setCurrentItem(root2)
+        tree_layout.addWidget(tree)
+        tree_table_layout.addLayout(tree_layout)
+
+        # Table widget
+        table_layout = QVBoxLayout()
+        table_layout.addWidget(QLabel("QTableWidget:"))
+        table = QTableWidget(4, 3)
+        table.setHorizontalHeaderLabels(["Column 1", "Column 2", "Column 3"])
+        table.setMaximumHeight(120)
+
+        for row in range(4):
+            for col in range(3):
+                table.setItem(row, col, QTableWidgetItem(f"R{row}C{col}"))
+
+        table.selectRow(1)
+        table_layout.addWidget(table)
+        tree_table_layout.addLayout(table_layout)
+
+        tree_table_group.setLayout(tree_table_layout)
+        main_layout.addWidget(tree_table_group)
+
+        # PlainTextEdit and Frame group
+        plain_frame_group = QGroupBox("QPlainTextEdit & QFrame")
+        plain_frame_layout = QHBoxLayout()
+
+        # PlainTextEdit
+        plain_layout = QVBoxLayout()
+        plain_layout.addWidget(QLabel("QPlainTextEdit:"))
+        plain_text = QPlainTextEdit()
+        plain_text.setPlainText("Plain text editor\nLine 2\nLine 3")
+        plain_text.setMaximumHeight(80)
+        plain_layout.addWidget(plain_text)
+        plain_frame_layout.addLayout(plain_layout)
+
+        # Frame
+        frame_layout = QVBoxLayout()
+        frame_layout.addWidget(QLabel("QFrame:"))
+        frame = QFrame()
+        frame.setFrameShape(QFrame.Shape.StyledPanel)
+        frame.setFrameShadow(QFrame.Shadow.Raised)
+        frame.setMinimumHeight(80)
+        frame_inner = QVBoxLayout(frame)
+        frame_inner.addWidget(QLabel("Content inside QFrame"))
+        frame_layout.addWidget(frame)
+        plain_frame_layout.addLayout(frame_layout)
+
+        plain_frame_group.setLayout(plain_frame_layout)
+        main_layout.addWidget(plain_frame_group)
+
+        # Date/Time widgets group
+        datetime_group = QGroupBox("Date & Time Widgets")
+        datetime_layout = QGridLayout()
+
+        datetime_layout.addWidget(QLabel("QDateEdit:"), 0, 0)
+        date_edit = QDateEdit()
+        date_edit.setCalendarPopup(True)
+        datetime_layout.addWidget(date_edit, 0, 1)
+
+        datetime_layout.addWidget(QLabel("QTimeEdit:"), 0, 2)
+        datetime_layout.addWidget(QTimeEdit(), 0, 3)
+
+        datetime_layout.addWidget(QLabel("QDateTimeEdit:"), 1, 0)
+        datetime_layout.addWidget(QDateTimeEdit(), 1, 1, 1, 3)
+
+        datetime_group.setLayout(datetime_layout)
+        main_layout.addWidget(datetime_group)
+
+        # Calendar widget group
+        calendar_group = QGroupBox("QCalendarWidget")
+        calendar_layout = QVBoxLayout()
+
+        calendar = QCalendarWidget()
+        calendar.setMaximumHeight(200)
+        calendar_layout.addWidget(calendar)
+
+        calendar_group.setLayout(calendar_layout)
+        main_layout.addWidget(calendar_group)
+
+        # Dial and LCD group
+        dial_lcd_group = QGroupBox("QDial & QLCDNumber")
+        dial_lcd_layout = QHBoxLayout()
+
+        # Dial
+        dial_layout = QVBoxLayout()
+        dial_layout.addWidget(QLabel("QDial:"))
+        dial = QDial()
+        dial.setMinimum(0)
+        dial.setMaximum(100)
+        dial.setValue(75)
+        dial.setNotchesVisible(True)
+        dial.setMaximumSize(100, 100)
+        dial_layout.addWidget(dial)
+        dial_layout.addStretch()
+        dial_lcd_layout.addLayout(dial_layout)
+
+        # LCD Number
+        lcd_layout = QVBoxLayout()
+        lcd_layout.addWidget(QLabel("QLCDNumber:"))
+        lcd = QLCDNumber()
+        lcd.setDigitCount(6)
+        lcd.display(123.45)
+        lcd.setMaximumHeight(60)
+        lcd_layout.addWidget(lcd)
+        lcd_layout.addStretch()
+        dial_lcd_layout.addLayout(lcd_layout)
+
+        dial_lcd_group.setLayout(dial_lcd_layout)
+        main_layout.addWidget(dial_lcd_group)
+
+        # ToolBar and ToolButton group
+        toolbar_group = QGroupBox("QToolBar & QToolButton")
+        toolbar_layout = QVBoxLayout()
+
+        toolbar = QToolBar("Sample Toolbar")
+        toolbar.addAction("Action 1")
+        toolbar.addAction("Action 2")
+        toolbar.addSeparator()
+
+        tool_btn = QToolButton()
+        tool_btn.setText("Tool Button")
+        toolbar.addWidget(tool_btn)
+
+        toolbar_layout.addWidget(toolbar)
+
+        # Standalone tool buttons
+        tool_btn_row = QHBoxLayout()
+        tool_btn_row.addWidget(QLabel("QToolButton:"))
+        tool_btn1 = QToolButton()
+        tool_btn1.setText("Normal")
+        tool_btn_row.addWidget(tool_btn1)
+
+        tool_btn2 = QToolButton()
+        tool_btn2.setText("Checkable")
+        tool_btn2.setCheckable(True)
+        tool_btn2.setChecked(True)
+        tool_btn_row.addWidget(tool_btn2)
+        tool_btn_row.addStretch()
+
+        toolbar_layout.addLayout(tool_btn_row)
+
+        toolbar_group.setLayout(toolbar_layout)
+        main_layout.addWidget(toolbar_group)
+
+        # ToolBox group
+        toolbox_group = QGroupBox("QToolBox")
+        toolbox_layout = QVBoxLayout()
+
+        toolbox = QToolBox()
+        toolbox.addItem(QLabel("Content of Page 1"), "Page 1")
+        toolbox.addItem(QLabel("Content of Page 2"), "Page 2")
+        toolbox.addItem(QLabel("Content of Page 3"), "Page 3")
+        toolbox.setMaximumHeight(150)
+        toolbox_layout.addWidget(toolbox)
+
+        toolbox_group.setLayout(toolbox_layout)
+        main_layout.addWidget(toolbox_group)
+
+        # DockWidget info (can't easily preview in panel)
+        dock_group = QGroupBox("QDockWidget")
+        dock_layout = QVBoxLayout()
+        dock_layout.addWidget(QLabel("QDockWidget is shown in the main window."))
+        dock_layout.addWidget(QLabel("It appears as a dockable panel that can float or dock to edges."))
+        dock_group.setLayout(dock_layout)
+        main_layout.addWidget(dock_group)
+
         # Add stretch to push everything to top
         main_layout.addStretch()
+
+        # Set scroll widget and add to main layout
+        scroll.setWidget(container)
+
+        # Main layout for this widget
+        widget_layout = QVBoxLayout(self)
+        widget_layout.setContentsMargins(0, 0, 0, 0)
+        widget_layout.addWidget(scroll)
