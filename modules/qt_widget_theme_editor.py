@@ -189,16 +189,24 @@ class QtWidgetThemeEditor(QWidget):
         self.themes: Dict[str, QtWidgetTheme] = {}
         self.current_theme_name: Optional[str] = None
         self.current_theme: Optional[QtWidgetTheme] = None
+        self.current_file_path: Optional[str] = None  # Track which file is currently loaded
         self.unsaved_changes = False
 
         self._setup_ui()
-        self._load_themes()
+        # DON'T load default file on startup - user must choose a file first!
 
     def _setup_ui(self):
         """Setup the user interface"""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(10)
+
+        # File status bar - show which file is currently loaded
+        file_status_layout = QHBoxLayout()
+        self.file_status_label = QLabel("No file loaded - click 'Load from File...' or 'New File' to start")
+        self.file_status_label.setStyleSheet("color: #FF9800; font-weight: bold; padding: 5px; background-color: #3C3C3C; border-radius: 3px;")
+        file_status_layout.addWidget(self.file_status_label)
+        layout.addLayout(file_status_layout)
 
         # Top controls
         controls_layout = QHBoxLayout()
@@ -224,6 +232,10 @@ class QtWidgetThemeEditor(QWidget):
 
         controls_layout.addWidget(QLabel("|"))  # Separator
 
+        self.new_file_btn = QPushButton("New File")
+        self.new_file_btn.clicked.connect(self._new_file)
+        controls_layout.addWidget(self.new_file_btn)
+
         self.load_file_btn = QPushButton("Load from File...")
         self.load_file_btn.clicked.connect(self._load_from_file)
         controls_layout.addWidget(self.load_file_btn)
@@ -231,6 +243,10 @@ class QtWidgetThemeEditor(QWidget):
         self.save_btn = QPushButton("Save")
         self.save_btn.clicked.connect(self._save_themes)
         controls_layout.addWidget(self.save_btn)
+
+        self.save_as_btn = QPushButton("Save As...")
+        self.save_as_btn.clicked.connect(self._save_as)
+        controls_layout.addWidget(self.save_as_btn)
 
         layout.addLayout(controls_layout)
 
@@ -412,21 +428,6 @@ class QtWidgetThemeEditor(QWidget):
         preview_layout.addWidget(scroll_area, 1)
 
         return preview_container
-
-    def _load_themes(self):
-        """Load themes from file"""
-        self.themes = self.theme_manager.load_qt_widget_themes()
-
-        # Update combo box
-        self.theme_combo.blockSignals(True)
-        self.theme_combo.clear()
-        self.theme_combo.addItems(sorted(self.themes.keys()))
-        self.theme_combo.blockSignals(False)
-
-        # Select first theme if available
-        if self.themes:
-            self.theme_combo.setCurrentIndex(0)
-            self._on_theme_changed(self.theme_combo.currentText())
 
     def _on_theme_changed(self, theme_name: str):
         """Handle theme selection change"""
@@ -743,23 +744,133 @@ class QtWidgetThemeEditor(QWidget):
             self.unsaved_changes = True
             self.themeModified.emit()
 
+    def _new_file(self):
+        """Start a new file with empty themes"""
+        if self.unsaved_changes:
+            reply = QMessageBox.question(
+                self,
+                "Unsaved Changes",
+                "You have unsaved changes. Do you want to continue?\nUnsaved changes will be lost.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+        # Clear everything
+        self.themes = {}
+        self.current_theme_name = None
+        self.current_theme = None
+        self.current_file_path = None
+        self.unsaved_changes = False
+
+        # Clear UI
+        self.theme_combo.blockSignals(True)
+        self.theme_combo.clear()
+        self.theme_combo.blockSignals(False)
+
+        self.widget_list.clear()
+        self.style_edit.clear()
+        self.current_widget_label.setText("Select a widget to edit")
+
+        # Update file status
+        self.file_status_label.setText("New file (not saved yet) - use 'Save' to choose location")
+        self.file_status_label.setStyleSheet("color: #4CAF50; font-weight: bold; padding: 5px; background-color: #3C3C3C; border-radius: 3px;")
+
+        QMessageBox.information(
+            self,
+            "New File",
+            "Started new file. Create themes and then use 'Save' to choose where to save."
+        )
+
     def _save_themes(self):
         """Save all themes to file"""
         try:
             # Block signals to prevent any focus changes from triggering unsaved changes
             self.style_edit.blockSignals(True)
 
-            self.theme_manager.save_qt_widget_themes(self.themes)
+            # CRITICAL: Save to the currently loaded file, NOT the default file!
+            if self.current_file_path is None:
+                # No file loaded yet - prompt user to choose location
+                from PyQt6.QtWidgets import QFileDialog
+                filename, _ = QFileDialog.getSaveFileName(
+                    self,
+                    "Save Qt Widget Themes",
+                    str(self.theme_manager.qt_widget_themes_dir / "qt_themes.json"),
+                    "JSON Files (*.json);;All Files (*)"
+                )
+
+                if not filename:
+                    self.style_edit.blockSignals(False)
+                    return  # User cancelled
+
+                self.current_file_path = filename
+
+            # Save to the tracked file
+            self.theme_manager.save_qt_widget_themes(self.themes, filepath=self.current_file_path)
             self.unsaved_changes = False
 
+            # Update file status label
+            self._update_file_status_label()
+
             # Show success message
-            QMessageBox.information(self, "Success", "Qt widget themes saved successfully")
+            QMessageBox.information(
+                self,
+                "Success",
+                f"Qt widget themes saved successfully to:\n{self.current_file_path}"
+            )
 
             # Unblock signals
             self.style_edit.blockSignals(False)
         except Exception as e:
             self.style_edit.blockSignals(False)
             QMessageBox.critical(self, "Error", f"Failed to save themes:\n{e}")
+
+    def _save_as(self):
+        """Save themes to a new file"""
+        from PyQt6.QtWidgets import QFileDialog
+
+        # Suggest current location or default
+        suggested_path = self.current_file_path if self.current_file_path else str(self.theme_manager.qt_widget_themes_dir / "qt_themes.json")
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Qt Widget Themes As",
+            suggested_path,
+            "JSON Files (*.json);;All Files (*)"
+        )
+
+        if not filename:
+            return  # User cancelled
+
+        try:
+            # Update current file path
+            self.current_file_path = filename
+
+            # Save to new location
+            self.theme_manager.save_qt_widget_themes(self.themes, filepath=self.current_file_path)
+            self.unsaved_changes = False
+
+            # Update file status label
+            self._update_file_status_label()
+
+            # Show success message
+            QMessageBox.information(
+                self,
+                "Success",
+                f"Qt widget themes saved successfully to:\n{self.current_file_path}"
+            )
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save themes:\n{e}")
+
+    def _update_file_status_label(self):
+        """Update the file status label to show currently loaded file"""
+        if self.current_file_path:
+            self.file_status_label.setText(f"Editing: {self.current_file_path}")
+            self.file_status_label.setStyleSheet("color: #4CAF50; font-weight: bold; padding: 5px; background-color: #3C3C3C; border-radius: 3px;")
+        else:
+            self.file_status_label.setText("No file loaded - click 'Load from File...' or 'New File' to start")
+            self.file_status_label.setStyleSheet("color: #FF9800; font-weight: bold; padding: 5px; background-color: #3C3C3C; border-radius: 3px;")
 
     def _load_from_file(self):
         """Load Qt Widget themes from external JSON file"""
@@ -786,6 +897,9 @@ class QtWidgetThemeEditor(QWidget):
             # Simply replace with loaded themes
             self.themes = loaded_themes
 
+            # CRITICAL: Track which file is currently loaded so we save to the right place!
+            self.current_file_path = filename
+
             # Update UI
             self.theme_combo.blockSignals(True)
             self.theme_combo.clear()
@@ -796,10 +910,17 @@ class QtWidgetThemeEditor(QWidget):
                 self.theme_combo.setCurrentIndex(0)
                 self._on_theme_changed(self.theme_combo.currentText())
 
-            self.unsaved_changes = True
+            self.unsaved_changes = False  # Just loaded, so no unsaved changes yet
             self.themeModified.emit()
 
-            self.status_bar_message = f"Loaded {len(loaded_themes)} theme(s) from {Path(filename).name}"
+            # Update file status label
+            self._update_file_status_label()
+
+            QMessageBox.information(
+                self,
+                "File Loaded",
+                f"Loaded {len(loaded_themes)} theme(s) from:\n{filename}\n\nChanges will be saved to this file."
+            )
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load themes:\n{e}")
