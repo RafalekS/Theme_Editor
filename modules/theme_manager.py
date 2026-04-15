@@ -56,7 +56,8 @@ class ThemeManager:
         if filepath is None:
             filepath = self.themes_dir / "themes.json"
         else:
-            filepath = Path(filepath)
+            # Expand ~ and environment variables
+            filepath = Path(os.path.expanduser(os.path.expandvars(str(filepath))))
 
         if not filepath.exists():
             return {}
@@ -90,7 +91,8 @@ class ThemeManager:
         if filepath is None:
             filepath = self.themes_dir / "themes.json"
         else:
-            filepath = Path(filepath)
+            # Expand ~ and environment variables
+            filepath = Path(os.path.expanduser(os.path.expandvars(str(filepath))))
 
         # Create backup if file exists
         if backup and filepath.exists():
@@ -128,7 +130,8 @@ class ThemeManager:
             if filepath is None:
                 raise FileNotFoundError("Windows Terminal settings.json not found")
         else:
-            filepath = Path(filepath)
+            # Expand ~ and environment variables
+            filepath = Path(os.path.expanduser(os.path.expandvars(str(filepath))))
 
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
@@ -157,7 +160,8 @@ class ThemeManager:
             if filepath is None:
                 raise FileNotFoundError("Windows Terminal settings.json not found")
         else:
-            filepath = Path(filepath)
+            # Expand ~ and environment variables
+            filepath = Path(os.path.expanduser(os.path.expandvars(str(filepath))))
 
         # ALWAYS backup settings.json
         if filepath.exists():
@@ -216,7 +220,8 @@ class ThemeManager:
         Returns:
             Tuple of (QSSPalette, qss_code_string)
         """
-        filepath = Path(filepath)
+        # Expand ~ and environment variables
+        filepath = Path(os.path.expanduser(os.path.expandvars(str(filepath))))
 
         if not filepath.exists():
             raise FileNotFoundError(f"QSS file not found: {filepath}")
@@ -243,7 +248,8 @@ class ThemeManager:
             filepath: Path to .qss file
             backup: Whether to create backup before saving
         """
-        filepath = Path(filepath)
+        # Expand ~ and environment variables
+        filepath = Path(os.path.expanduser(os.path.expandvars(str(filepath))))
 
         # Create backup if file exists
         if backup and filepath.exists():
@@ -271,7 +277,8 @@ class ThemeManager:
         Returns:
             CustomTkinterTheme object
         """
-        filepath = Path(filepath)
+        # Expand ~ and environment variables
+        filepath = Path(os.path.expanduser(os.path.expandvars(str(filepath))))
 
         if not filepath.exists():
             raise FileNotFoundError(f"CustomTkinter theme file not found: {filepath}")
@@ -296,7 +303,8 @@ class ThemeManager:
             filepath: Path to .json file
             backup: Whether to create backup before saving
         """
-        filepath = Path(filepath)
+        # Expand ~ and environment variables
+        filepath = Path(os.path.expanduser(os.path.expandvars(str(filepath))))
 
         # Create backup if file exists
         if backup and filepath.exists():
@@ -463,7 +471,8 @@ class ThemeManager:
         if filepath is None:
             filepath = self.qt_widget_themes_dir / "qt_themes.json"
         else:
-            filepath = Path(filepath)
+            # Expand ~ and environment variables
+            filepath = Path(os.path.expanduser(os.path.expandvars(str(filepath))))
 
         if not filepath.exists():
             return {}
@@ -497,7 +506,8 @@ class ThemeManager:
         if filepath is None:
             filepath = self.qt_widget_themes_dir / "qt_themes.json"
         else:
-            filepath = Path(filepath)
+            # Expand ~ and environment variables
+            filepath = Path(os.path.expanduser(os.path.expandvars(str(filepath))))
 
         # Create backup if file exists
         if backup and filepath.exists():

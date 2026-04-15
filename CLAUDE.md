@@ -9,6 +9,8 @@
 This is a **completely separate project** from SAP_Security_DB. It should be developed in its own repository with its own dependencies and documentation.
 
 ---
+This project uses agents.
+
 
 ## Git Repository Setup
 

@@ -897,11 +897,7 @@
       "QProgressBar": "background-color: #121418; color: #E5C7A9; border: 1px solid #675F54; border-radius: 3px; text-align: center;",
       "QProgressBar::chunk": "background-color: #1398B9; border-radius: 2px;",
       "QDialog": "background-color: #292520; color: #E5C7A9;",
-      "QMessageBox": "background-color: #292520; color: #E5C7A9;",
-      "QCheckBox": "",
-      "QCheckBox::indicator": "width: 18px; height: 18px; border: 2px solid #555; border-radius: 3px; background-color: #676567",
-      "QCheckBox::indicator:checked": "background-color: #FFFF00; border-color: #FFFF7F",
-      "QCheckBox::indicator:unchecked": "color: #FFFFFF; spacing: 5px;"
+      "QMessageBox": "background-color: #292520; color: #E5C7A9;"
     }
   },
   "Espresso": {

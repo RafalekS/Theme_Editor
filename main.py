@@ -23,6 +23,7 @@ from PyQt6.QtGui import QAction, QIcon
 # Add modules directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
+from modules.config_manager import ConfigManager
 from modules.theme_manager import ThemeManager
 from modules.theme_data import TerminalTheme, QSSPalette, CustomTkinterTheme, QtWidgetTheme
 from modules.json_theme_editor import JSONTerminalEditor
@@ -39,7 +40,14 @@ class ThemeEditorMainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Theme Editor - Multi-Format Theme Manager")
-        self.setGeometry(100, 100, 1200, 800)
+
+        # Initialize config manager
+        self.config_manager = ConfigManager()
+
+        # Get window dimensions from config
+        window_width = self.config_manager.get("ui.dimensions.window_width", 1200)
+        window_height = self.config_manager.get("ui.dimensions.window_height", 800)
+        self.setGeometry(100, 100, window_width, window_height)
 
         # Initialize theme manager
         self.theme_manager = ThemeManager()
@@ -47,10 +55,8 @@ class ThemeEditorMainWindow(QMainWindow):
         # Perform first-run setup (silently)
         self.theme_manager.first_run_setup()
 
-        # Set application icon (use dark theme icon by default)
-        icon_path = Path(__file__).parent / "assets" / "theme_editor_dark.ico"
-        if icon_path.exists():
-            self.setWindowIcon(QIcon(str(icon_path)))
+        # Set application icon from config
+        self._set_application_icon()
 
         # Setup UI
         self._setup_ui()
@@ -61,6 +67,25 @@ class ThemeEditorMainWindow(QMainWindow):
         # Track unsaved changes
         self.unsaved_changes = False
         self.current_file = None
+
+    def _set_application_icon(self):
+        """Set application icon based on config settings"""
+        icon_mode = self.config_manager.get("app.icon_mode", "auto")
+
+        if icon_mode == "light":
+            icon_key = "app.icon_light"
+        elif icon_mode == "dark":
+            icon_key = "app.icon_dark"
+        else:  # auto
+            # TODO: Detect system theme (light/dark) - for now use dark
+            icon_key = "app.icon_dark"
+
+        icon_path = self.config_manager.get_path(icon_key)
+
+        if icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
+        else:
+            print(f"Warning: Icon not found at {icon_path}")
 
     def _setup_ui(self):
         """Setup main UI with tabbed interface"""
@@ -280,40 +305,6 @@ class ThemeEditorMainWindow(QMainWindow):
         # Update status when tab changes
         self.tab_widget.currentChanged.connect(self._update_status_bar)
 
-    def _load_app_config(self) -> dict:
-        """Load application configuration from config.json"""
-        import json
-        config_path = Path(__file__).parent / "config" / "config.json"
-
-        # Default config
-        default_config = {
-            "app_theme": "Gruvbox Dark",  # Default theme name
-            "window_geometry": None,
-            "last_tab": 0
-        }
-
-        if config_path.exists():
-            try:
-                with open(config_path, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-                    # Merge with defaults
-                    return {**default_config, **config}
-            except Exception as e:
-                print(f"Error loading config: {e}")
-                return default_config
-        else:
-            return default_config
-
-    def _save_app_config(self, config: dict):
-        """Save application configuration to config.json"""
-        import json
-        config_path = Path(__file__).parent / "config" / "config.json"
-
-        try:
-            with open(config_path, 'w', encoding='utf-8') as f:
-                json.dump(config, f, indent=2)
-        except Exception as e:
-            print(f"Error saving config: {e}")
 
     def _apply_app_theme(self, theme_name: str = None):
         """Apply Qt Widget theme to the application
@@ -321,10 +312,9 @@ class ThemeEditorMainWindow(QMainWindow):
         Args:
             theme_name: Name of theme to apply. If None, loads from config.
         """
-        # Load config to get theme name if not provided
+        # Get theme name from config if not provided
         if theme_name is None:
-            config = self._load_app_config()
-            theme_name = config.get("app_theme", "Gruvbox Dark")
+            theme_name = self.config_manager.get("app.theme", self.config_manager.get("defaults.qt_widget_theme", "Earthsong"))
 
         # Load Qt Widget themes
         qt_themes = self.theme_manager.load_qt_widget_themes()
@@ -336,33 +326,10 @@ class ThemeEditorMainWindow(QMainWindow):
             self.setStyleSheet(stylesheet)
             self.status_label.setText(f"Applied theme: {theme_name}")
         else:
-            # Fallback to default dark theme if specified theme not found
-            self.status_label.setText(f"Theme '{theme_name}' not found, using default")
-            # Apply a basic dark theme as fallback
-            basic_dark = """
-                QWidget {
-                    background-color: #2B2B2B;
-                    color: #FFFFFF;
-                }
-                QPushButton {
-                    background-color: #0078D4;
-                    color: #FFFFFF;
-                    border: 1px solid #555;
-                    border-radius: 4px;
-                    padding: 6px 12px;
-                }
-                QPushButton:hover {
-                    background-color: #1084D8;
-                }
-                QLineEdit, QTextEdit, QComboBox {
-                    background-color: #3C3C3C;
-                    color: #FFFFFF;
-                    border: 1px solid #555;
-                    border-radius: 3px;
-                    padding: 4px;
-                }
-            """
-            self.setStyleSheet(basic_dark)
+            # Fallback to generated stylesheet from config
+            self.status_label.setText(f"Theme '{theme_name}' not found, using fallback")
+            fallback_stylesheet = self.config_manager.get_fallback_stylesheet()
+            self.setStyleSheet(fallback_stylesheet)
 
     # ==================== Menu Actions ====================
 
@@ -449,14 +416,14 @@ class ThemeEditorMainWindow(QMainWindow):
 
     def _convert_json_to_qss(self):
         """Convert Terminal JSON theme to QSS"""
-        self.tab_widget.setCurrentIndex(4)  # Switch to Converter tab
+        self.tab_widget.setCurrentIndex(5)  # Switch to Converter tab (index 5)
         # Pre-select Terminal as source
         self.converter_tab.source_format_combo.setCurrentText("Terminal JSON")
         self.converter_tab.target_format_combo.setCurrentText("QSS")
 
     def _convert_qss_to_json(self):
         """Convert QSS theme to Terminal JSON"""
-        self.tab_widget.setCurrentIndex(4)  # Switch to Converter tab
+        self.tab_widget.setCurrentIndex(5)  # Switch to Converter tab (index 5)
         # Pre-select QSS as source
         self.converter_tab.source_format_combo.setCurrentText("QSS")
         self.converter_tab.target_format_combo.setCurrentText("Terminal JSON")
@@ -469,15 +436,14 @@ class ThemeEditorMainWindow(QMainWindow):
 
     def _show_settings(self):
         """Show application settings dialog"""
-        dialog = SettingsDialog(self, self.theme_manager)
+        dialog = SettingsDialog(self, self.theme_manager, self.config_manager)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             # Get selected theme
             selected_theme = dialog.get_selected_theme()
 
             # Save to config
-            config = self._load_app_config()
-            config["app_theme"] = selected_theme
-            self._save_app_config(config)
+            self.config_manager.set("app.theme", selected_theme)
+            self.config_manager.save()
 
             # Apply the theme
             self._apply_app_theme(selected_theme)
@@ -613,9 +579,10 @@ class ThemeEditorMainWindow(QMainWindow):
 class SettingsDialog(QDialog):
     """Settings dialog for application theme selection"""
 
-    def __init__(self, parent, theme_manager: ThemeManager):
+    def __init__(self, parent, theme_manager: ThemeManager, config_manager: ConfigManager):
         super().__init__(parent)
         self.theme_manager = theme_manager
+        self.config_manager = config_manager
         self.setWindowTitle("Settings")
         self.setMinimumWidth(500)
         self.setMinimumHeight(200)
@@ -655,16 +622,10 @@ class SettingsDialog(QDialog):
             theme_names = sorted(qt_themes.keys())
             self.theme_combo.addItems(theme_names)
 
-            # Select current theme
-            from pathlib import Path
-            import json
-            config_path = Path(__file__).parent / "config" / "config.json"
-            if config_path.exists():
-                with open(config_path, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-                    current_theme = config.get("app_theme", "Gruvbox Dark")
-                    if current_theme in theme_names:
-                        self.theme_combo.setCurrentText(current_theme)
+            # Select current theme from config
+            current_theme = self.config_manager.get("app.theme", self.config_manager.get("defaults.qt_widget_theme", "Earthsong"))
+            if current_theme in theme_names:
+                self.theme_combo.setCurrentText(current_theme)
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to load themes:\n{e}")
 
