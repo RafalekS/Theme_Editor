@@ -3,18 +3,59 @@ Qt Widget Theme Editor
 Editor for Qt Widget themes with comprehensive widget selector and live preview
 """
 
+import re
+
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QComboBox,
     QListWidget, QTextEdit, QSplitter, QGroupBox, QLineEdit, QMessageBox,
     QInputDialog, QScrollArea, QSpinBox, QRadioButton, QCheckBox,
     QProgressBar, QSlider, QDateEdit, QTimeEdit, QDateTimeEdit, QDoubleSpinBox,
-    QTabWidget
+    QTabWidget, QFrame, QGridLayout, QSizePolicy
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from pathlib import Path
 from typing import Dict, Optional
 from .theme_data import QtWidgetTheme
 from .theme_manager import ThemeManager
+from .widget_indexer import load_visible_ui_index, location_display_name
+
+# ── UI colour constants (dark theme defaults) ─────────────────────────────────
+_C_ACCENT       = "#0078D4"
+_C_ACCENT2      = "#1E90FF"
+_C_BG_DARK      = "#2B2B2B"
+_C_BG_MEDIUM    = "#3C3C3C"
+_C_BG_LIGHT     = "#555555"
+_C_FG_PRIMARY   = "#FFFFFF"
+_C_FG_DIM       = "#AAAAAA"
+_C_FG_SECONDARY = "#CCCCCC"
+
+# ── Widget type buttons for the selector panel ────────────────────────────────
+# (display_name, icon, qt_class_for_index_lookup, primary_css_selector)
+WIDGET_BUTTONS: list[tuple[str, str, str, str]] = [
+    ("Button",      "⬜",  "QPushButton",  "QPushButton"),
+    ("ToolButton",  "🔧",  "QToolButton",  "QToolButton"),
+    ("CheckBox",    "☑",   "QCheckBox",    "QCheckBox"),
+    ("RadioButton", "○",   "QRadioButton", "QRadioButton"),
+    ("Label",       "🔤",  "QLabel",       "QLabel"),
+    ("Input",       "📝",  "QLineEdit",    "QLineEdit"),
+    ("TextEdit",    "📄",  "QTextEdit",    "QTextEdit"),
+    ("ComboBox",    "▼",   "QComboBox",    "QComboBox"),
+    ("SpinBox",     "123", "QSpinBox",     "QSpinBox"),
+    ("List",        "≡",   "QListWidget",  "QListWidget"),
+    ("Tree",        "🌲",  "QTreeWidget",  "QTreeWidget"),
+    ("Table",       "⊞",   "QTableWidget", "QTableWidget"),
+    ("GroupBox",    "▣",   "QGroupBox",    "QGroupBox"),
+    ("TabBar",      "🗂",  "QTabWidget",   "QTabBar::tab"),
+    ("ScrollBar",   "│",   "QScrollBar",   "QScrollBar:vertical"),
+    ("Splitter",    "┃",   "QSplitter",    "QSplitter::handle"),
+    ("ProgressBar", "░",   "QProgressBar", "QProgressBar"),
+    ("Slider",      "▬",   "QSlider",      "QSlider::groove:horizontal"),
+    ("MenuBar",     "☰",   "QMenuBar",     "QMenuBar"),
+    ("Menu",        "📋",  "QMenu",        "QMenu"),
+    ("StatusBar",   "⎘",   "QStatusBar",   "QStatusBar"),
+    ("Dialog",      "🪟",  "QDialog",      "QDialog"),
+    ("ToolTip",     "💬",  "QToolTip",     "QToolTip"),
+]
 
 
 # Comprehensive list of Qt widgets and selectors
@@ -178,10 +219,269 @@ QT_WIDGET_SELECTORS = [
 ]
 
 
+# ── WidgetSelectorPanel ───────────────────────────────────────────────────────
+
+class WidgetSelectorPanel(QScrollArea):
+    """Left panel — button-based widget type selector.
+    Shows only widget types that appear in Theme_Editor's own source.
+    A 'Show usage panel' checkbox toggles the 3rd pane."""
+
+    widget_selected      = pyqtSignal(str)   # qt_class, e.g. "QPushButton"
+    usage_panel_toggled  = pyqtSignal(bool)  # True = show usage panel
+
+    _BTN_H = 36
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWidgetResizable(True)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setMinimumWidth(185)
+        self.setMaximumWidth(215)
+
+        self._buttons: dict[str, QPushButton] = {}   # qt_class → button
+        self._selected_class: str | None = None
+
+        # Load visible-UI index
+        try:
+            self._vis_idx = load_visible_ui_index()
+        except Exception:
+            self._vis_idx = {}
+
+        content = QWidget()
+        vbox = QVBoxLayout(content)
+        vbox.setContentsMargins(6, 6, 6, 8)
+        vbox.setSpacing(3)
+
+        # "Show usage panel" checkbox
+        self._usage_chk = QCheckBox("Show usage panel")
+        self._usage_chk.setStyleSheet(
+            f"QCheckBox {{ color: {_C_FG_SECONDARY}; font-size: 9px; }}"
+        )
+        self._usage_chk.setToolTip(
+            "Opens a panel showing which modules use the selected widget.\n"
+            "Click any entry to navigate there."
+        )
+        self._usage_chk.stateChanged.connect(
+            lambda s: self.usage_panel_toggled.emit(s == 2)
+        )
+        vbox.addWidget(self._usage_chk)
+
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setStyleSheet(f"color: {_C_BG_LIGHT};")
+        sep.setFixedHeight(1)
+        vbox.addWidget(sep)
+
+        title = QLabel("Select widget:")
+        title.setStyleSheet(
+            f"color: {_C_FG_DIM}; font-style: italic; padding: 2px 0;"
+        )
+        vbox.addWidget(title)
+
+        # One button per widget type — skip those with 0 visible locations
+        for display_name, icon, qt_class, _selector in WIDGET_BUTTONS:
+            locations = self._vis_idx.get(qt_class, [])
+            if not locations:
+                continue
+
+            btn = QPushButton(f"{icon} {display_name}")
+            btn.setCheckable(True)
+            btn.setFixedHeight(self._BTN_H)
+            btn.setStyleSheet(self._btn_style(False))
+            btn.setToolTip(f"Used in {len(locations)} location(s)")
+            btn.clicked.connect(lambda _c, qc=qt_class: self._select(qc))
+            self._buttons[qt_class] = btn
+            vbox.addWidget(btn)
+
+        vbox.addStretch()
+        self.setWidget(content)
+
+    @staticmethod
+    def _btn_style(active: bool) -> str:
+        if active:
+            return (
+                f"QPushButton {{ background-color: {_C_ACCENT}; color: {_C_BG_DARK}; "
+                f"border: none; border-radius: 4px; padding: 0 10px; "
+                f"font-weight: bold; text-align: left; }}"
+            )
+        return (
+            f"QPushButton {{ background-color: {_C_BG_MEDIUM}; color: {_C_FG_PRIMARY}; "
+            f"border: 1px solid {_C_BG_LIGHT}; border-radius: 4px; padding: 0 10px; "
+            f"text-align: left; }}"
+            f"QPushButton:hover {{ background-color: {_C_BG_LIGHT}; }}"
+        )
+
+    def _select(self, qt_class: str):
+        for qc, btn in self._buttons.items():
+            active = (qc == qt_class)
+            btn.setChecked(active)
+            btn.setStyleSheet(self._btn_style(active))
+        self._selected_class = qt_class
+        self.widget_selected.emit(qt_class)
+
+    def set_active(self, qt_class: str | None):
+        """Highlight a button without emitting signals."""
+        for qc, btn in self._buttons.items():
+            active = (qc == qt_class)
+            btn.setChecked(active)
+            btn.setStyleSheet(self._btn_style(active))
+        self._selected_class = qt_class
+
+
+# ── UsagePanel ────────────────────────────────────────────────────────────────
+
+class UsagePanel(QWidget):
+    """Right pane — shows which Theme_Editor modules use the selected widget.
+    Each location is a clickable button; clicking emits navigate_to(class_name)
+    so the main window can switch to that module's tab."""
+
+    navigate_to = pyqtSignal(str)   # emits the class name to navigate to
+
+    _COLS_THRESHOLD_2 = 7
+    _COLS_THRESHOLD_3 = 18
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMinimumWidth(240)
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(8, 8, 8, 8)
+        outer.setSpacing(6)
+
+        self._title_lbl = QLabel("Select a widget to see where it is used")
+        self._title_lbl.setWordWrap(True)
+        self._title_lbl.setStyleSheet(
+            f"font-weight: bold; color: {_C_ACCENT}; padding-bottom: 4px;"
+        )
+        outer.addWidget(self._title_lbl)
+
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setStyleSheet(f"color: {_C_BG_LIGHT};")
+        sep.setFixedHeight(1)
+        outer.addWidget(sep)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setStyleSheet("QScrollArea { border: none; }")
+        outer.addWidget(scroll, 1)
+
+        self._grid_widget = QWidget()
+        self._grid = QGridLayout(self._grid_widget)
+        self._grid.setContentsMargins(0, 0, 0, 0)
+        self._grid.setSpacing(4)
+        scroll.setWidget(self._grid_widget)
+
+        self._hint_lbl = QLabel("Click any location to navigate there")
+        self._hint_lbl.setStyleSheet(
+            f"color: {_C_FG_DIM}; font-style: italic; font-size: 9px;"
+        )
+        outer.addWidget(self._hint_lbl)
+
+        self._loc_btns: list[QPushButton] = []
+
+    def update_locations(self, widget_display_name: str, locations: list[str]):
+        """Rebuild the grid with new locations, grouped by type then name."""
+        # Clear all existing widgets from grid
+        for w in self._loc_btns:
+            w.deleteLater()
+        self._loc_btns.clear()
+        while self._grid.count():
+            item = self._grid.takeAt(0)
+            w = item.widget()
+            if w:
+                w.deleteLater()
+
+        n = len(locations)
+        if n == 0:
+            self._title_lbl.setText(f"{widget_display_name} — not found in any module")
+            self._hint_lbl.hide()
+            return
+
+        self._title_lbl.setText(
+            f"{widget_display_name}  —  {n} location{'s' if n != 1 else ''}"
+        )
+        self._hint_lbl.show()
+
+        # Group by type
+        groups = {
+            "editor": ("🖊  Editors",  []),
+            "ui":     ("🧩  Panels",   []),
+            "dialog": ("🪟  Dialogs",  []),
+            "window": ("🖥  Windows",  []),
+            "other":  ("▸  Other",    []),
+        }
+        for cls_name in locations:
+            _, badge = location_display_name(cls_name)
+            groups.get(badge, groups["other"])[1].append(cls_name)
+
+        cols = 1
+        if n > self._COLS_THRESHOLD_3:
+            cols = 3
+        elif n > self._COLS_THRESHOLD_2:
+            cols = 2
+
+        grid_row = 0
+        for badge_key, (section_title, cls_list) in groups.items():
+            if not cls_list:
+                continue
+
+            hdr = QLabel(section_title)
+            hdr.setStyleSheet(
+                f"color: {_C_ACCENT2}; font-weight: bold; font-size: 9px; "
+                f"letter-spacing: 1px; padding: 6px 0 2px 0; background: transparent;"
+            )
+            self._grid.addWidget(hdr, grid_row, 0, 1, cols)
+            grid_row += 1
+
+            badge_icons = {"editor": "🖊", "ui": "🧩", "dialog": "🪟", "window": "🖥"}
+            icon = badge_icons.get(badge_key, "▸")
+
+            for col_idx, cls_name in enumerate(sorted(cls_list)):
+                human, badge = location_display_name(cls_name)
+                lbl = f"{icon} {human}"
+
+                btn = QPushButton(lbl)
+                btn.setToolTip(f"{cls_name}\n({badge})" if badge else cls_name)
+                btn.setStyleSheet(self._loc_btn_style())
+                btn.setSizePolicy(
+                    QSizePolicy.Policy.Expanding,
+                    QSizePolicy.Policy.Expanding,
+                )
+                btn.clicked.connect(lambda _c, cn=cls_name: self.navigate_to.emit(cn))
+
+                row = grid_row + col_idx // cols
+                col = col_idx % cols
+                self._grid.addWidget(btn, row, col)
+                self._loc_btns.append(btn)
+
+            row_count = (len(cls_list) + cols - 1) // cols
+            grid_row += row_count
+
+        # Allow buttons to grow vertically when there is room
+        if n < 45:
+            for r in range(grid_row):
+                self._grid.setRowStretch(r, 1)
+
+    @staticmethod
+    def _loc_btn_style() -> str:
+        return (
+            f"QPushButton {{ background-color: {_C_BG_MEDIUM}; color: {_C_FG_PRIMARY}; "
+            f"border: 1px solid {_C_BG_LIGHT}; border-radius: 4px; "
+            f"padding: 5px 8px; text-align: left; font-size: 9px; }}"
+            f"QPushButton:hover {{ background-color: {_C_ACCENT}; "
+            f"color: {_C_BG_DARK}; border-color: {_C_ACCENT}; }}"
+        )
+
+
+# ── QtWidgetThemeEditor ───────────────────────────────────────────────────────
+
 class QtWidgetThemeEditor(QWidget):
     """Qt Widget Theme Editor with live preview"""
 
-    themeModified = pyqtSignal()  # Emitted when theme is modified
+    themeModified = pyqtSignal()   # Emitted when theme is modified
+    navigate_to   = pyqtSignal(str)  # class name to navigate to (forwarded from UsagePanel)
 
     def __init__(self, theme_manager: ThemeManager, parent=None):
         super().__init__(parent)
@@ -250,10 +550,15 @@ class QtWidgetThemeEditor(QWidget):
 
         layout.addLayout(controls_layout)
 
-        # Main splitter (left: editor, right: preview)
+        # Main splitter: selector | editor | preview | usage
         main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self._main_splitter = main_splitter
 
-        # Left side: Widget editor
+        # Pane 0: widget type selector buttons
+        self._selector_panel = WidgetSelectorPanel()
+        main_splitter.addWidget(self._selector_panel)
+
+        # Pane 1: Widget editor (existing)
         editor_widget = QWidget()
         editor_layout = QVBoxLayout(editor_widget)
         editor_layout.setContentsMargins(0, 0, 0, 0)
@@ -383,22 +688,33 @@ class QtWidgetThemeEditor(QWidget):
         self.updating_from_code = False
 
         # Set minimum width for editor side
-        editor_widget.setMinimumWidth(400)
+        editor_widget.setMinimumWidth(380)
         main_splitter.addWidget(editor_widget)
 
-        # Right side: Live preview
+        # Pane 2: Live preview (existing)
         preview_widget = self._create_full_preview_panel()
-        preview_widget.setMinimumWidth(350)
+        preview_widget.setMinimumWidth(300)
         main_splitter.addWidget(preview_widget)
 
-        # Configure splitter for proper resizing
-        main_splitter.setStretchFactor(0, 6)  # Editor gets 60% of space
-        main_splitter.setStretchFactor(1, 4)  # Preview gets 40% of space
-        main_splitter.setChildrenCollapsible(False)  # Prevent total collapse
+        # Pane 3: Usage panel (hidden initially)
+        self._usage_panel = UsagePanel()
+        self._usage_panel.hide()
+        main_splitter.addWidget(self._usage_panel)
+
+        # Prevent any pane from collapsing to zero
+        for i in range(4):
+            main_splitter.setCollapsible(i, False)
         main_splitter.setHandleWidth(6)
 
-        # Set initial sizes
-        main_splitter.setSizes([600, 400])
+        # Initial sizes: selector=200, editor=450, preview=350, usage hidden
+        main_splitter.setSizes([200, 450, 350, 280])
+
+        # Wire selector panel → editor list + usage panel
+        self._selector_panel.widget_selected.connect(self._on_selector_widget_selected)
+        self._selector_panel.usage_panel_toggled.connect(self._toggle_usage_panel)
+
+        # Wire usage panel navigation → forward as our own signal
+        self._usage_panel.navigate_to.connect(self.navigate_to)
 
         layout.addWidget(main_splitter, 1)
 
@@ -493,6 +809,11 @@ class QtWidgetThemeEditor(QWidget):
 
         self.updating_from_code = False
 
+        # Sync selector panel highlight and usage panel
+        base_class = widget_selector.split(':')[0].split(' ')[0]
+        self._selector_panel.set_active(base_class)
+        self._update_usage_panel(base_class)
+
     def _on_preview_widget_clicked(self, widget_selector: str):
         """Handle widget click from preview panel"""
         if not self.current_theme:
@@ -511,6 +832,58 @@ class QtWidgetThemeEditor(QWidget):
             self.widget_list.setCurrentItem(items[0])
             # Scroll to make it visible
             self.widget_list.scrollToItem(items[0])
+
+        # Highlight the corresponding selector button
+        base_class = widget_selector.split(':')[0].split(' ')[0]
+        self._selector_panel.set_active(base_class)
+        self._update_usage_panel(base_class)
+
+    # ── Widget selector panel wiring ──────────────────────────────────────────
+
+    def _on_selector_widget_selected(self, qt_class: str):
+        """Handle widget type button click from WidgetSelectorPanel."""
+        # Find the primary selector for this class in the current theme
+        primary_selector = None
+        for _name, _icon, qc, sel in WIDGET_BUTTONS:
+            if qc == qt_class:
+                primary_selector = sel
+                break
+
+        if primary_selector and self.current_theme:
+            selectors = self.current_theme.get_widget_selectors()
+            # Try exact match first, then base-class prefix match
+            target = None
+            if primary_selector in selectors:
+                target = primary_selector
+            else:
+                # Look for any selector that starts with the base class
+                base = qt_class
+                for s in selectors:
+                    if s == base or s.startswith(base + ':') or s.startswith(base + ' '):
+                        target = s
+                        break
+
+            if target:
+                items = self.widget_list.findItems(target, Qt.MatchFlag.MatchExactly)
+                if items:
+                    self.widget_list.setCurrentItem(items[0])
+                    self.widget_list.scrollToItem(items[0])
+
+        self._update_usage_panel(qt_class)
+
+    def _toggle_usage_panel(self, visible: bool):
+        """Show or hide the usage panel pane."""
+        self._usage_panel.setVisible(visible)
+        if visible and self._selector_panel._selected_class:
+            self._update_usage_panel(self._selector_panel._selected_class)
+
+    def _update_usage_panel(self, qt_class: str):
+        """Populate UsagePanel for the given Qt class."""
+        if not self._usage_panel.isVisible():
+            return
+        vis_idx = self._selector_panel._vis_idx
+        locations = vis_idx.get(qt_class, [])
+        self._usage_panel.update_locations(qt_class, locations)
 
     def _on_style_changed(self):
         """Handle style text change"""

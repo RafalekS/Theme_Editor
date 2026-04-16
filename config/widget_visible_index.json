@@ -1,0 +1,130 @@
+{
+  "QPushButton": [
+    "CTkThemeEditor",
+    "ConverterUI",
+    "ImageConverterDialog",
+    "JSONTerminalEditor",
+    "QSSThemeEditor",
+    "QtWidgetThemeEditor",
+    "WindowsTerminalEditor"
+  ],
+  "QToolButton": [
+    "QtWidgetThemeEditor"
+  ],
+  "QLabel": [
+    "CTkThemeEditor",
+    "ConverterUI",
+    "ImageConverterDialog",
+    "JSONTerminalEditor",
+    "QSSThemeEditor",
+    "QtWidgetThemeEditor",
+    "WindowsTerminalEditor"
+  ],
+  "QLineEdit": [
+    "CTkThemeEditor",
+    "ConverterUI",
+    "QtWidgetThemeEditor",
+    "WindowsTerminalEditor"
+  ],
+  "QTextEdit": [
+    "CTkThemeEditor",
+    "ConverterUI",
+    "ImageConverterDialog",
+    "QSSThemeEditor",
+    "QtWidgetThemeEditor"
+  ],
+  "QPlainTextEdit": [
+    "QtWidgetThemeEditor"
+  ],
+  "QComboBox": [
+    "ConverterUI",
+    "ImageConverterDialog",
+    "JSONTerminalEditor",
+    "QSSThemeEditor",
+    "QtWidgetThemeEditor"
+  ],
+  "QCheckBox": [
+    "QtWidgetThemeEditor"
+  ],
+  "QRadioButton": [
+    "QtWidgetThemeEditor"
+  ],
+  "QListWidget": [
+    "ImageConverterDialog",
+    "QtWidgetThemeEditor",
+    "WindowsTerminalEditor"
+  ],
+  "QTableWidget": [
+    "QtWidgetThemeEditor"
+  ],
+  "QTreeWidget": [
+    "QtWidgetThemeEditor"
+  ],
+  "QGroupBox": [
+    "CTkThemeEditor",
+    "ConverterUI",
+    "ImageConverterDialog",
+    "JSONTerminalEditor",
+    "QSSThemeEditor",
+    "QtWidgetThemeEditor",
+    "WindowsTerminalEditor"
+  ],
+  "QSpinBox": [
+    "ImageConverterDialog",
+    "QtWidgetThemeEditor"
+  ],
+  "QTabWidget": [
+    "QtWidgetThemeEditor"
+  ],
+  "QTabBar": [
+    "QtWidgetThemeEditor"
+  ],
+  "QSplitter": [
+    "CTkThemeEditor",
+    "JSONTerminalEditor",
+    "QSSThemeEditor",
+    "QtWidgetThemeEditor",
+    "WindowsTerminalEditor"
+  ],
+  "QScrollArea": [
+    "CTkThemeEditor",
+    "JSONTerminalEditor",
+    "QSSThemeEditor",
+    "QtWidgetThemeEditor",
+    "WindowsTerminalEditor"
+  ],
+  "QScrollBar": [
+    "CTkThemeEditor",
+    "JSONTerminalEditor",
+    "QSSThemeEditor",
+    "QtWidgetThemeEditor",
+    "WindowsTerminalEditor"
+  ],
+  "QProgressBar": [
+    "ImageConverterDialog",
+    "QtWidgetThemeEditor"
+  ],
+  "QSlider": [
+    "ImageConverterDialog",
+    "QtWidgetThemeEditor"
+  ],
+  "QFrame": [
+    "QtWidgetThemeEditor"
+  ],
+  "QDialog": [
+    "ImageConverterDialog",
+    "QtWidgetThemeEditor"
+  ],
+  "QStatusBar": [
+    "QtWidgetThemeEditor"
+  ],
+  "QToolTip": [
+    "QtWidgetThemeEditor"
+  ],
+  "QMenuBar": [
+    "QtWidgetThemeEditor"
+  ],
+  "QMenu": [
+    "QtWidgetThemeEditor"
+  ]
+}

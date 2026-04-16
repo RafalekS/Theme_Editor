@@ -137,12 +137,52 @@ class ThemeEditorMainWindow(QMainWindow):
         # Tab 5: Qt Widget Theme Editor (FULLY IMPLEMENTED)
         self.qt_widget_editor_tab = QtWidgetThemeEditor(self.theme_manager)
         self.qt_widget_editor_tab.themeModified.connect(self._on_theme_modified)
+        self.qt_widget_editor_tab.navigate_to.connect(self.navigate_to_class)
         self.tab_widget.addTab(self.qt_widget_editor_tab, "Qt Widget Themes")
 
         # Tab 6: Theme Converter (FULLY IMPLEMENTED)
         self.converter_tab = ConverterUI(self.theme_manager)
         self.converter_tab.conversionComplete.connect(self._on_conversion_complete)
         self.tab_widget.addTab(self.converter_tab, "Converter")
+
+    def navigate_to_class(self, class_name: str):
+        """Switch to the tab that corresponds to the given navigable class name.
+
+        Called when the user clicks a location in the UsagePanel.
+        Handles Editor, UI, Dialog, and Window suffixes.
+        """
+        # Direct class-name → tab index mapping
+        _CLASS_TO_INDEX = {
+            "JSONTerminalEditor":    0,
+            "WindowsTerminalEditor": 1,
+            "QSSThemeEditor":        2,
+            "CTkThemeEditor":        3,
+            "QtWidgetThemeEditor":   4,
+            "ConverterUI":           5,
+        }
+
+        if class_name in _CLASS_TO_INDEX:
+            self.tab_widget.setCurrentIndex(_CLASS_TO_INDEX[class_name])
+            return
+
+        # Fuzzy match: strip suffix, try to match tab name substring
+        _SUFFIXES = ("Editor", "UI", "Dialog", "Window")
+        base = class_name
+        for suffix in _SUFFIXES:
+            if class_name.endswith(suffix):
+                base = class_name[:-len(suffix)].lower()
+                break
+
+        tab_names = [
+            "terminal", "windows", "qss", "ctk", "qt widget", "converter"
+        ]
+        for idx, tname in enumerate(tab_names):
+            if base in tname:
+                self.tab_widget.setCurrentIndex(idx)
+                return
+
+        # Fall back to Qt Widget Themes tab (where we came from)
+        self.tab_widget.setCurrentIndex(4)
 
     def _create_placeholder_tab(self, title: str, description: str) -> QWidget:
         """
