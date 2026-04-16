@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Dict, Optional
 from .theme_data import QtWidgetTheme
 from .theme_manager import ThemeManager
-from .widget_indexer import load_visible_ui_index, location_display_name
+from .widget_indexer import build_entries_by_qt_class, location_display_name
 
 # ── Claude_DB → Qt Widget Theme format converter ─────────────────────────────
 
@@ -323,11 +323,11 @@ class WidgetSelectorPanel(QScrollArea):
         self._buttons: dict[str, QPushButton] = {}   # qt_class → button
         self._selected_class: str | None = None
 
-        # Load visible-UI index
+        # Build entries-by-Qt-class (accurate per-method-body detection)
         try:
-            self._vis_idx = load_visible_ui_index()
+            self._entries_by_qt_class = build_entries_by_qt_class()
         except Exception:
-            self._vis_idx = {}
+            self._entries_by_qt_class = {}
 
         content = QWidget()
         vbox = QVBoxLayout(content)
@@ -362,15 +362,15 @@ class WidgetSelectorPanel(QScrollArea):
 
         # One button per widget type — skip those with 0 visible locations
         for display_name, icon, qt_class, _selector in WIDGET_BUTTONS:
-            locations = self._vis_idx.get(qt_class, [])
-            if not locations:
+            entries = self._entries_by_qt_class.get(qt_class, [])
+            if not entries:
                 continue
 
             btn = QPushButton(f"{icon} {display_name}")
             btn.setCheckable(True)
             btn.setFixedHeight(self._BTN_H)
             btn.setStyleSheet(self._btn_style(False))
-            btn.setToolTip(f"Used in {len(locations)} location(s)")
+            btn.setToolTip(f"Used in {len(entries)} location(s)")
             btn.clicked.connect(lambda _c, qc=qt_class: self._select(qc))
             self._buttons[qt_class] = btn
             vbox.addWidget(btn)
@@ -463,7 +463,7 @@ class UsagePanel(QWidget):
 
         self._loc_btns: list[QPushButton] = []
 
-    def update_locations(self, widget_display_name: str, locations: list[str]):
+    def update_locations(self, widget_display_name: str, entries: list[dict]):
         """Rebuild the grid with new locations, grouped by type then name."""
         # Clear all existing widgets from grid
         for w in self._loc_btns:
@@ -475,7 +475,7 @@ class UsagePanel(QWidget):
             if w:
                 w.deleteLater()
 
-        n = len(locations)
+        n = len(entries)
         if n == 0:
             self._title_lbl.setText(f"{widget_display_name} — not found in any module")
             self._hint_lbl.hide()
@@ -486,17 +486,17 @@ class UsagePanel(QWidget):
         )
         self._hint_lbl.show()
 
-        # Group by type
-        groups = {
-            "editor": ("🖊  Editors",  []),
-            "ui":     ("🧩  Panels",   []),
-            "dialog": ("🪟  Dialogs",  []),
-            "window": ("🖥  Windows",  []),
+        # Group by nav entry type
+        groups: dict[str, tuple[str, list[dict]]] = {
+            "Tab":    ("🖊  Editors",  []),
+            "SubTab": ("🧩  Panels",   []),
+            "Dialog": ("🪟  Dialogs",  []),
+            "Window": ("🖥  Windows",  []),
             "other":  ("▸  Other",    []),
         }
-        for cls_name in locations:
-            _, badge = location_display_name(cls_name)
-            groups.get(badge, groups["other"])[1].append(cls_name)
+        for entry in entries:
+            etype = entry.get("type", "other")
+            groups.get(etype, groups["other"])[1].append(entry)
 
         cols = 1
         if n > self._COLS_THRESHOLD_3:
@@ -504,9 +504,11 @@ class UsagePanel(QWidget):
         elif n > self._COLS_THRESHOLD_2:
             cols = 2
 
+        type_icons = {"Tab": "🖊", "SubTab": "🧩", "Dialog": "🪟", "Window": "🖥"}
+
         grid_row = 0
-        for badge_key, (section_title, cls_list) in groups.items():
-            if not cls_list:
+        for type_key, (section_title, entry_list) in groups.items():
+            if not entry_list:
                 continue
 
             hdr = QLabel(section_title)
@@ -517,28 +519,37 @@ class UsagePanel(QWidget):
             self._grid.addWidget(hdr, grid_row, 0, 1, cols)
             grid_row += 1
 
-            badge_icons = {"editor": "🖊", "ui": "🧩", "dialog": "🪟", "window": "🖥"}
-            icon = badge_icons.get(badge_key, "▸")
+            icon = type_icons.get(type_key, "▸")
 
-            for col_idx, cls_name in enumerate(sorted(cls_list)):
-                human, badge = location_display_name(cls_name)
-                lbl = f"{icon} {human}"
+            for col_idx, entry in enumerate(
+                sorted(entry_list, key=lambda e: e["label"])
+            ):
+                label      = entry["label"]
+                parent_lbl = entry.get("parent_label")
+                nav_id     = entry.get("parent_id") or entry["id"]
 
-                btn = QPushButton(lbl)
-                btn.setToolTip(f"{cls_name}\n({badge})" if badge else cls_name)
+                if parent_lbl:
+                    btn_text = f"{icon} {label}\n↳ {parent_lbl}"
+                    tooltip  = f"{label} (sub of {parent_lbl})"
+                else:
+                    btn_text = f"{icon} {label}"
+                    tooltip  = label
+
+                btn = QPushButton(btn_text)
+                btn.setToolTip(tooltip)
                 btn.setStyleSheet(self._loc_btn_style())
                 btn.setSizePolicy(
                     QSizePolicy.Policy.Expanding,
                     QSizePolicy.Policy.Expanding,
                 )
-                btn.clicked.connect(lambda _c, cn=cls_name: self.navigate_to.emit(cn))
+                btn.clicked.connect(lambda _c, nid=nav_id: self.navigate_to.emit(nid))
 
                 row = grid_row + col_idx // cols
                 col = col_idx % cols
                 self._grid.addWidget(btn, row, col)
                 self._loc_btns.append(btn)
 
-            row_count = (len(cls_list) + cols - 1) // cols
+            row_count = (len(entry_list) + cols - 1) // cols
             grid_row += row_count
 
         # Allow buttons to grow vertically when there is room
@@ -975,9 +986,8 @@ class QtWidgetThemeEditor(QWidget):
         """Populate UsagePanel for the given Qt class."""
         if not self._usage_panel.isVisible():
             return
-        vis_idx = self._selector_panel._vis_idx
-        locations = vis_idx.get(qt_class, [])
-        self._usage_panel.update_locations(qt_class, locations)
+        entries = self._selector_panel._entries_by_qt_class.get(qt_class, [])
+        self._usage_panel.update_locations(qt_class, entries)
 
     def _on_style_changed(self):
         """Handle style text change"""

@@ -1,0 +1,65 @@
+[
+  {
+    "id": "JSONTerminalEditor",
+    "label": "Terminal Themes",
+    "type": "Tab",
+    "parent_id": null,
+    "parent_label": null,
+    "source_class": "JSONTerminalEditor",
+    "builder": null
+  },
+  {
+    "id": "WindowsTerminalEditor",
+    "label": "Windows Terminal",
+    "type": "Tab",
+    "parent_id": null,
+    "parent_label": null,
+    "source_class": "WindowsTerminalEditor",
+    "builder": null
+  },
+  {
+    "id": "QSSThemeEditor",
+    "label": "QSS Themes",
+    "type": "Tab",
+    "parent_id": null,
+    "parent_label": null,
+    "source_class": "QSSThemeEditor",
+    "builder": null
+  },
+  {
+    "id": "CTkThemeEditor",
+    "label": "CustomTkinter",
+    "type": "Tab",
+    "parent_id": null,
+    "parent_label": null,
+    "source_class": "CTkThemeEditor",
+    "builder": null
+  },
+  {
+    "id": "QtWidgetThemeEditor",
+    "label": "Qt Widget Themes",
+    "type": "Tab",
+    "parent_id": null,
+    "parent_label": null,
+    "source_class": "QtWidgetThemeEditor",
+    "builder": null
+  },
+  {
+    "id": "ConverterUI",
+    "label": "Converter",
+    "type": "Tab",
+    "parent_id": null,
+    "parent_label": null,
+    "source_class": "ConverterUI",
+    "builder": null
+  },
+  {
+    "id": "QLabel",
+    "label": "Tab 1",
+    "type": "SubTab",
+    "parent_id": "QSSPreviewWidget",
+    "parent_label": "QSSPreviewWidget",
+    "source_class": "QLabel",
+    "builder": null
+  }
+]
