@@ -19,6 +19,88 @@ from .theme_data import QtWidgetTheme
 from .theme_manager import ThemeManager
 from .widget_indexer import load_visible_ui_index, location_display_name
 
+# ── Claude_DB → Qt Widget Theme format converter ─────────────────────────────
+
+# Maps Claude_DB display names → base CSS selector
+_CLAUDE_DB_SELECTOR_MAP: dict[str, str] = {
+    "Button":      "QPushButton",
+    "Label":       "QLabel",
+    "Input":       "QLineEdit",
+    "TextEdit":    "QTextEdit",
+    "TextBrowser": "QTextBrowser",
+    "ComboBox":    "QComboBox",
+    "CheckBox":    "QCheckBox",
+    "RadioButton": "QRadioButton",
+    "Table":       "QTableWidget",
+    "List":        "QListWidget",
+    "TreeWidget":  "QTreeWidget",
+    "GroupBox":    "QGroupBox",
+    "TabPane":     "QTabWidget::pane",
+    "ProgressBar": "QProgressBar",
+    "Slider":      "QSlider",
+    "SpinBox":     "QSpinBox",
+    "Tabs":        "QTabBar::tab",
+    "Splitter":    "QSplitter::handle",
+    "Divider":     "QFrame",
+    "ScrollBar":   "QScrollBar",
+    "Dialog":      "QDialog",
+    "ToolTip":     "QToolTip",
+}
+
+# Properties that need a "px" suffix when the value is an integer
+_PX_PROPS: frozenset[str] = frozenset({
+    "border-radius", "border-width",
+    "border-top-width", "border-bottom-width",
+    "border-left-width", "border-right-width",
+    "padding", "padding-top", "padding-right", "padding-bottom", "padding-left",
+    "margin", "margin-top", "margin-right", "margin-bottom", "margin-left",
+    "font-size", "spacing", "width", "height",
+    "max-height", "min-height", "max-width", "min-width", "subcontrol-height",
+})
+
+
+def _is_claude_db_format(data: dict) -> bool:
+    """Return True if the JSON looks like a Claude_DB themes file."""
+    if not isinstance(data, dict):
+        return False
+    for theme_val in data.values():
+        if isinstance(theme_val, dict):
+            for widget_key in theme_val:
+                # Claude_DB stores widget names like "Button", "Label", ...
+                if widget_key in _CLAUDE_DB_SELECTOR_MAP:
+                    return True
+    return False
+
+
+def _convert_claude_db_theme(widgets: dict) -> dict[str, str]:
+    """Convert one Claude_DB 'widgets' dict to a {css_selector: css_string} dict."""
+    result: dict[str, dict[str, str]] = {}  # full_selector → {prop: value}
+
+    for widget_name, props in widgets.items():
+        base_sel = _CLAUDE_DB_SELECTOR_MAP.get(widget_name)
+        if base_sel is None or not isinstance(props, dict):
+            continue
+
+        for key, value in props.items():
+            if "|" not in key:
+                continue
+            state, css_prop = key.split("|", 1)
+            full_sel = base_sel + state   # e.g. "QPushButton:hover"
+
+            # Format the value
+            if css_prop == "font-weight":
+                css_val = "bold" if value else "normal"
+            elif isinstance(value, (int, float)) and css_prop in _PX_PROPS:
+                css_val = f"{int(value)}px"
+            else:
+                css_val = str(value)
+
+            result.setdefault(full_sel, {})[css_prop] = css_val
+
+    return {sel: "; ".join(f"{p}: {v}" for p, v in decls.items())
+            for sel, decls in result.items()}
+
+
 # ── UI colour constants (dark theme defaults) ─────────────────────────────────
 _C_ACCENT       = "#0078D4"
 _C_ACCENT2      = "#1E90FF"
@@ -1258,8 +1340,10 @@ class QtWidgetThemeEditor(QWidget):
             self.file_status_label.setStyleSheet("color: #FF9800; font-weight: bold; padding: 5px; background-color: #3C3C3C; border-radius: 3px;")
 
     def _load_from_file(self):
-        """Load Qt Widget themes from external JSON file"""
+        """Load Qt Widget themes from external JSON file.
+        Also accepts Claude_DB themes.json format and converts it automatically."""
         from PyQt6.QtWidgets import QFileDialog
+        import json
 
         filename, _ = QFileDialog.getOpenFileName(
             self,
@@ -1272,20 +1356,45 @@ class QtWidgetThemeEditor(QWidget):
             return
 
         try:
-            # Just load the themes - no merge/replace nonsense
-            loaded_themes = self.theme_manager.load_qt_widget_themes(filename)
+            raw = json.loads(Path(filename).read_text(encoding="utf-8"))
+
+            # ── Detect and convert Claude_DB format ──────────────────────────
+            converted = False
+            if _is_claude_db_format(raw):
+                # Claude_DB file: { "ThemeName": { "globals": {...}, "widgets": {...} } }
+                converted_themes = {}
+                for theme_name, theme_body in raw.items():
+                    if not isinstance(theme_body, dict):
+                        continue
+                    widgets_section = theme_body.get("widgets", theme_body)
+                    css_map = _convert_claude_db_theme(widgets_section)
+                    if css_map:
+                        converted_themes[theme_name] = css_map
+                if not converted_themes:
+                    QMessageBox.warning(self, "Conversion Failed",
+                                        "File looks like a Claude_DB theme but could not be converted.")
+                    return
+                # Build QtWidgetTheme objects from the converted CSS map
+                loaded_themes = {}
+                for tname, css_map in converted_themes.items():
+                    qt_theme = QtWidgetTheme(name=tname)
+                    for selector, css in css_map.items():
+                        qt_theme.add_widget_style(selector, css)
+                    loaded_themes[tname] = qt_theme
+                converted = True
+            else:
+                # ── Standard Theme_Editor format ─────────────────────────────
+                loaded_themes = self.theme_manager.load_qt_widget_themes(filename)
 
             if not loaded_themes:
-                QMessageBox.warning(self, "No Themes", f"No valid Qt Widget themes found in:\n{filename}")
+                QMessageBox.warning(self, "No Themes",
+                                    f"No valid Qt Widget themes found in:\n{filename}")
                 return
 
-            # Simply replace with loaded themes
             self.themes = loaded_themes
+            # For converted files don't save back to the source path by default
+            self.current_file_path = None if converted else filename
 
-            # CRITICAL: Track which file is currently loaded so we save to the right place!
-            self.current_file_path = filename
-
-            # Update UI
             self.theme_combo.blockSignals(True)
             self.theme_combo.clear()
             self.theme_combo.addItems(sorted(self.themes.keys()))
@@ -1295,17 +1404,15 @@ class QtWidgetThemeEditor(QWidget):
                 self.theme_combo.setCurrentIndex(0)
                 self._on_theme_changed(self.theme_combo.currentText())
 
-            self.unsaved_changes = False  # Just loaded, so no unsaved changes yet
+            self.unsaved_changes = converted   # converted = unsaved (different format)
             self.themeModified.emit()
-
-            # Update file status label
             self._update_file_status_label()
 
-            QMessageBox.information(
-                self,
-                "File Loaded",
-                f"Loaded {len(loaded_themes)} theme(s) from:\n{filename}\n\nChanges will be saved to this file."
-            )
+            msg = (f"Converted {len(loaded_themes)} Claude_DB theme(s) from:\n{filename}\n\n"
+                   "Use 'Save As…' to save in Theme_Editor format."
+                   if converted else
+                   f"Loaded {len(loaded_themes)} theme(s) from:\n{filename}\n\nChanges will be saved to this file.")
+            QMessageBox.information(self, "File Loaded", msg)
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load themes:\n{e}")
