@@ -563,40 +563,26 @@ class QtWidgetThemeEditor(QWidget):
         editor_layout = QVBoxLayout(editor_widget)
         editor_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Widget selector group
-        widget_group = QGroupBox("Widget Styles")
-        widget_layout = QVBoxLayout(widget_group)
-
-        # Widget list
+        # Hidden widget list — kept for internal state tracking by existing methods
         self.widget_list = QListWidget()
         self.widget_list.currentTextChanged.connect(self._on_widget_selected)
-        widget_layout.addWidget(QLabel("Widgets in theme:"))
-        widget_layout.addWidget(self.widget_list, 1)
+        self.widget_list.hide()
 
-        # Add widget controls
-        add_widget_layout = QHBoxLayout()
-        add_widget_layout.addWidget(QLabel("Add widget:"))
+        # Hidden add-widget combo — still used by _add_widget / _remove_widget
         self.widget_selector_combo = QComboBox()
         self.widget_selector_combo.setEditable(True)
-        # Sort the selectors alphabetically for easier finding
         self.widget_selector_combo.addItems(sorted(QT_WIDGET_SELECTORS))
-        add_widget_layout.addWidget(self.widget_selector_combo, 1)
+        self.widget_selector_combo.hide()
+
+        self.remove_widget_btn = QPushButton("Remove Selected Widget")
+        self.remove_widget_btn.clicked.connect(self._remove_widget)
+        self.remove_widget_btn.hide()
 
         self.add_widget_btn = QPushButton("Add")
         self.add_widget_btn.clicked.connect(self._add_widget)
-        add_widget_layout.addWidget(self.add_widget_btn)
+        self.add_widget_btn.hide()
 
-        widget_layout.addLayout(add_widget_layout)
-
-        # Remove widget button
-        self.remove_widget_btn = QPushButton("Remove Selected Widget")
-        self.remove_widget_btn.clicked.connect(self._remove_widget)
-        widget_layout.addWidget(self.remove_widget_btn)
-
-        # Widget Styles section gets less height (30% of editor space)
-        editor_layout.addWidget(widget_group, 3)
-
-        # Style editor group
+        # Style editor group — takes the full middle pane
         style_group = QGroupBox("Widget Style Editor")
         style_layout = QVBoxLayout(style_group)
 
@@ -681,8 +667,7 @@ class QtWidgetThemeEditor(QWidget):
         self.apply_style_btn.clicked.connect(self._apply_preview)
         style_layout.addWidget(self.apply_style_btn)
 
-        # Style editor section gets more height (70% of editor space)
-        editor_layout.addWidget(style_group, 7)
+        editor_layout.addWidget(style_group, 1)
 
         # Track if we're updating from code (to prevent loops)
         self.updating_from_code = False
@@ -841,35 +826,62 @@ class QtWidgetThemeEditor(QWidget):
     # ── Widget selector panel wiring ──────────────────────────────────────────
 
     def _on_selector_widget_selected(self, qt_class: str):
-        """Handle widget type button click from WidgetSelectorPanel."""
-        # Find the primary selector for this class in the current theme
-        primary_selector = None
+        """Handle widget type button click — loads that widget's CSS into the editor."""
+        # Determine which CSS selector to edit
+        primary_selector = qt_class  # default fallback
         for _name, _icon, qc, sel in WIDGET_BUTTONS:
             if qc == qt_class:
                 primary_selector = sel
                 break
 
-        if primary_selector and self.current_theme:
+        if self.current_theme:
             selectors = self.current_theme.get_widget_selectors()
-            # Try exact match first, then base-class prefix match
+            # Find an existing selector for this widget type
             target = None
             if primary_selector in selectors:
                 target = primary_selector
             else:
-                # Look for any selector that starts with the base class
-                base = qt_class
+                # Broaden: any selector whose base class matches
                 for s in selectors:
-                    if s == base or s.startswith(base + ':') or s.startswith(base + ' '):
+                    base = s.split(':')[0].split(' ')[0]
+                    if base == qt_class:
                         target = s
                         break
 
-            if target:
-                items = self.widget_list.findItems(target, Qt.MatchFlag.MatchExactly)
-                if items:
-                    self.widget_list.setCurrentItem(items[0])
-                    self.widget_list.scrollToItem(items[0])
+            if target is None:
+                # Not in theme yet — add it with a default style
+                default = self._get_default_style(primary_selector)
+                self.current_theme.add_widget_style(primary_selector, default)
+                self.widget_list.addItem(primary_selector)
+                self._update_available_widgets()
+                target = primary_selector
+
+            # Select in the hidden widget_list so existing methods work
+            items = self.widget_list.findItems(target, Qt.MatchFlag.MatchExactly)
+            if items:
+                self.widget_list.setCurrentItem(items[0])
+            else:
+                # Manually trigger the editor update
+                self._load_selector_into_editor(target)
+        else:
+            # No theme loaded — just update the header
+            self.current_widget_label.setText(f"Load a theme file first")
 
         self._update_usage_panel(qt_class)
+
+    def _load_selector_into_editor(self, widget_selector: str):
+        """Directly populate the style editor for the given selector."""
+        if not self.current_theme:
+            return
+        style = self.current_theme.get_widget_style(widget_selector) or ""
+        self.updating_from_code = True
+        self.style_edit.blockSignals(True)
+        self.style_edit.setPlainText(style)
+        self.style_edit.blockSignals(False)
+        self.current_widget_label.setText(f"Editing: {widget_selector}")
+        self._update_widget_preview(widget_selector, style)
+        self._update_visual_properties(style)
+        self.updating_from_code = False
 
     def _toggle_usage_panel(self, visible: bool):
         """Show or hide the usage panel pane."""
