@@ -1432,12 +1432,22 @@ class QtWidgetThemeEditor(QWidget):
         self._load_from_file()
 
     def _apply_preview(self):
-        """Apply current theme to preview panel"""
+        """Apply current theme to preview panel and force all widgets to repaint."""
         if not self.current_theme:
             return
 
         stylesheet = self.current_theme.generate_stylesheet()
         self.preview_panel.setStyleSheet(stylesheet)
+
+        # Qt caches widget rendering — unpolish/polish forces the style engine
+        # to re-read the new stylesheet for every child widget.
+        style = self.preview_panel.style()
+        style.unpolish(self.preview_panel)
+        style.polish(self.preview_panel)
+        for child in self.preview_panel.findChildren(QWidget):
+            style.unpolish(child)
+            style.polish(child)
+            child.update()
 
     def has_unsaved_changes(self) -> bool:
         """Check if there are unsaved changes"""
@@ -1471,6 +1481,9 @@ class QtWidgetThemeEditor(QWidget):
         self._update_visual_properties(new_style)
         self._update_widget_preview(widget_selector, new_style)
         self.updating_from_code = False
+
+        # Auto-update the full preview panel immediately
+        self._apply_preview()
 
         self.unsaved_changes = True
         self.themeModified.emit()
@@ -1793,6 +1806,9 @@ class QtWidgetThemeEditor(QWidget):
         self.style_edit.setPlainText(new_style)
         self._update_widget_preview(widget_selector, new_style)
         self.updating_from_code = False
+
+        # Auto-update the full preview panel immediately
+        self._apply_preview()
 
         self.unsaved_changes = True
         self.themeModified.emit()
